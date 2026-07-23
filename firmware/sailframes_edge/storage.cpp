@@ -178,6 +178,23 @@ void logNav() {
   sdWriting = false;
 }
 
+String sessionStartedAtIso(const char* filepath) {
+  String path = String(filepath);
+  int sfIdx = path.indexOf("/sf/");
+  if (sfIdx >= 0) {
+    int start = sfIdx + 4;
+    int slash = path.indexOf('/', start);
+    String folder = (slash >= 0) ? path.substring(start, slash) : path.substring(start);
+    if (folder.length() == 15 && folder.charAt(8) == '_') {
+      return folder.substring(0, 4) + "-" + folder.substring(4, 6) + "-" + folder.substring(6, 8) +
+             "T" + folder.substring(9, 11) + ":" + folder.substring(11, 13) + ":" + folder.substring(13, 15) + "Z";
+    }
+  }
+  char iso[24];
+  if (formatGpsIso(iso, sizeof(iso))) return String(iso);
+  return "";
+}
+
 void logIMU() {
   if (!imuFile || !logging) return;
   sdWriting = true;

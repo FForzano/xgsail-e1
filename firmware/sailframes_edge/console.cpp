@@ -13,9 +13,9 @@
 #include "recording.h"
 #include "storage.h"
 #include "display.h"
-#include "ota.h"
+#include "telnet.h"
 #include "upload.h"
-#include "cloud_config.h"
+#include "device_auth.h"
 #include "shared_state.h"
 #include <SD.h>
 
@@ -172,13 +172,13 @@ void processCommand(String cmd, bool fromTelnet) {
       tprintf("Connected to: %s, IP: %s\n", connectedSSID, WiFi.localIP().toString().c_str());
       tprintf("Free heap: %u bytes\n", ESP.getFreeHeap());
 
-      // Test S3 connectivity
-      tprintln("Testing S3 connection...");
-      if (!testS3Connection()) {
-        tprintln("S3 connection FAILED");
+      // Test API connectivity
+      tprintln("Testing API connection...");
+      if (!testApiConnectivity()) {
+        tprintln("API connection FAILED");
         return;
       }
-      tprintln("S3 OK");
+      tprintln("API OK");
 
       // Set uploading flag so Core 0 task doesn't interfere, and OLED shows progress
       uploading = true;
@@ -228,13 +228,38 @@ void processCommand(String cmd, bool fromTelnet) {
       tprintln("Not connected");
     }
 
-  } else if (cmd == "update" || cmd == "ota") {
-    tprintln("Starting OTA update from manifest...");
-    // manual=true bypasses the per-boot one-shot guard — operator
-    // explicitly asked, so a re-check is allowed even if the upload
-    // task already ran one this boot.
-    bool ok = performOTAUpdate(true);
-    if (!ok) tprintln("OTA: failed (see serial log)");
+  } else if (cmd.startsWith("claim ")) {
+    // Device-protocol claim flow (docs/device-protocol.md §2). Needs
+    // WiFi — connects first if not already up.
+    String code = cmd.substring(6);
+    code.trim();
+    if (code.length() == 0) {
+      tprintln("usage: claim <CODE>");
+    } else if (isClaimed()) {
+      tprintf("Already claimed (device_id=%s) — nothing to do\n", deviceId());
+    } else {
+      if (!wifiConnected) {
+        tprintln("Connecting to WiFi...");
+        connectWiFi();
+      }
+      if (!wifiConnected) {
+        tprintln("claim: WiFi connect failed");
+      } else {
+        bool ok = claimDevice(code.c_str());
+        tprintf("claim: %s\n", ok ? "OK" : "failed (see serial log)");
+      }
+    }
+
+  } else if (cmd == "device" || cmd == "deviceinfo") {
+    tprintln("=== Device ===");
+    tprintf("external_id: %s\n", externalId());
+    if (isClaimed()) {
+      tprintf("claimed: yes (device_id=%s)\n", deviceId());
+    } else {
+      tprintln("claimed: no — use 'claim <CODE>' or set claim_code= in config.txt");
+    }
+    tprintf("api_base_url: %s\n", strlen(config.api_base_url) ? config.api_base_url : "(not set)");
+    tprintln("==============");
 
   } else if (cmd == "reboot") {
     tprintln("Rebooting...");
@@ -709,10 +734,6 @@ void processCommand(String cmd, bool fromTelnet) {
   } else if (cmd == "role") {
     tprintf("role=%s radio_mode=%s\n", roleName(g_role), radioModeName(g_radio_mode));
 
-  } else if (cmd == "configver") {
-    tprintf("config_version=%d boat_id=%s fw=%s\n",
-            config.config_version, config.boat_id, FW_VERSION);
-
   } else if (cmd == "flags") {
     tprintf("imu_interval_ms=%d (baked)\n", IMU_INTERVAL_MS);
     tprintf("gnss_fix_rate=10 Hz (baked, PQTMCFGFIXRATE)\n");
@@ -722,30 +743,17 @@ void processCommand(String cmd, bool fromTelnet) {
   } else if (cmd == "radiomode") {
     tprintf("radio_mode=%s\n", radioModeName(g_radio_mode));
 
-  } else if (cmd == "statusup") {
-    // Stage 3 — force a fleet health snapshot PUT now. Manual trigger
-    // for testing / verification; the upload task does this once per
+  } else if (cmd == "health") {
+    // Force a health snapshot POST now (docs/device-protocol.md §4.4).
+    // Manual trigger for testing — the upload task does this once per
     // boot automatically.
     if (!wifiConnected) {
-      tprintln("statusup: WiFi not connected; run `wifi` to bring it up");
+      tprintln("health: WiFi not connected; run `wifi` to bring it up");
+    } else if (!isClaimed()) {
+      tprintln("health: device not claimed");
     } else {
-      bool ok = uploadStatusSnapshot();
-      tprintf("statusup: %s\n", ok ? "OK" : "failed (see Serial)");
-      if (ok) g_statusCheckedThisBoot = true;
-    }
-
-  } else if (cmd == "configsync") {
-    // Stage 3.5 — force a cloud config check. Observe-only MVP.
-    if (!wifiConnected) {
-      tprintln("configsync: WiFi not connected");
-    } else {
-      bool ok = performConfigSync();
-      tprintf("configsync: %s\n", ok ? "OK (see Serial for diff)" : "failed");
-      tprintf("  local config_version = %d\n", config.config_version);
-      tprintf("  cloud config_version = %d%s\n",
-              g_cloud_config_version,
-              g_cloud_config_version < 0 ? " (not fetched)" : "");
-      if (ok) g_configSyncCheckedThisBoot = true;
+      bool ok = uploadHealthSnapshot();
+      tprintf("health: %s\n", ok ? "OK" : "failed (see Serial)");
     }
 
   } else if (cmd == "ocs") {
@@ -970,25 +978,24 @@ void processCommand(String cmd, bool fromTelnet) {
     tprintln("  testssl    - Test SSL connection");
     tprintln("  ls, list   - List SD card files");
     tprintln("  cat <file> - Show file contents");
-    tprintln("  upload     - Manual upload to S3");
+    tprintln("  upload     - Manual upload via device protocol");
     tprintln("  cleanup    - Delete uploaded files");
     tprintln("  telneton   - Enable telnet listener (off by default)");
     tprintln("  telnetoff  - Disable telnet listener");
     tprintln("  wifi       - Connect to WiFi");
     tprintln("  disconnect - Disconnect WiFi");
-    tprintln("  update     - OTA pull from S3 manifest (manual)");
+    tprintln("  claim <CODE> - Redeem a device-protocol claim code");
+    tprintln("  device     - Show external_id + claim status");
     tprintln("  reboot     - Restart device");
     tprintln("  hwid       - Show detected hardware platform");
     tprintln("  role       - Show unit role + radio mode");
-    tprintln("  configver  - Show config version + boat_id + firmware");
     tprintln("  flags      - Show v2.0.0 feature flag state");
     tprintln("  radiomode  - Show current radio mode");
     tprintln("  mesh       - ESP-NOW peer mesh status + peers seen");
     tprintln("  fleet      - RC view of fleet OCS (RC-only)");
     tprintln("  fleetwatch - live RC fleet OCS dashboard, ~2 Hz (RC-only; VT100 term)");
     tprintln("  classes    - Show /sf/classes.csv bow_offset registry (RC-only)");
-    tprintln("  statusup   - Upload fleet health snapshot to S3 now");
-    tprintln("  configsync - Fetch + apply cloud config from S3 (reboots if newer)");
+    tprintln("  health     - Push a health snapshot now");
     tprintln("  ocs        - Show OCS state (Stage 4)");
     tprintln("  race arm <pin_lat> <pin_lon> <rc_lat> <rc_lon> <secs>");
     tprintln("             - Arm OCS state machine for a race start");

@@ -41,21 +41,23 @@
 #include <WiFi.h>
 #include <WiFiClient.h>
 #include <WiFiClientSecure.h>
-#include <ArduinoOTA.h>
-#include <Update.h>
 #include <HTTPClient.h>
-#include "mbedtls/sha256.h"
 #include <Adafruit_BNO08x.h>
 #include <Adafruit_DPS310.h>
 #include <esp_heap_caps.h>
 #include <esp_task_wdt.h>
-// NimBLE configuration - disable unused features to reduce size
+// NimBLE configuration. CENTRAL+OBSERVER: the existing Calypso wind-sensor
+// client (wind_sensor.cpp). PERIPHERAL: the device-protocol GATT relay
+// server (ble_relay.cpp) — connectable advertising + accepting the phone
+// app's connection, run concurrently with the central role. 2 connections/
+// bonds: one outbound (wind sensor, unbonded) + one inbound (phone relay,
+// bonded for the `provisioning` characteristic).
 #define CONFIG_BT_NIMBLE_ROLE_CENTRAL 1
-#define CONFIG_BT_NIMBLE_ROLE_PERIPHERAL 0
+#define CONFIG_BT_NIMBLE_ROLE_PERIPHERAL 1
 #define CONFIG_BT_NIMBLE_ROLE_OBSERVER 1
 #define CONFIG_BT_NIMBLE_ROLE_BROADCASTER 0
-#define CONFIG_BT_NIMBLE_MAX_CONNECTIONS 1
-#define CONFIG_BT_NIMBLE_MAX_BONDS 1
+#define CONFIG_BT_NIMBLE_MAX_CONNECTIONS 2
+#define CONFIG_BT_NIMBLE_MAX_BONDS 2
 #define CONFIG_BT_NIMBLE_SVC_GAP_DEVICE_NAME "SailFrames-E1"
 #include <NimBLEDevice.h>
 #include <esp_now.h>
@@ -75,9 +77,10 @@
 #include "ocs.h"
 #include "display.h"
 #include "storage.h"
-#include "ota.h"
+#include "telnet.h"
 #include "console.h"
-#include "cloud_config.h"
+#include "device_auth.h"
+#include "ble_relay.h"
 #include "upload.h"
 #include "shared_state.h"
 
@@ -390,6 +393,11 @@ void setup() {
   initWindSensor();
 #endif
 
+  // Device-protocol BLE GATT relay (docs/device-protocol.md §8) — brings
+  // up BLE itself if the wind sensor didn't. First-class upload path:
+  // starts unconditionally, not gated on WiFi being absent/down.
+  bleRelayInit();
+
   // Connect to WiFi EARLY (for OTA and telnet access during GPS search)
   // WiFi connection is handled by upload task on Core 0 - non-blocking
   // Don't connect at boot to avoid blocking the display
@@ -482,26 +490,13 @@ void loop() {
   g_loopSection = "top";
   unsigned long now = millis();
 
-
-  // Stage 3.6 — cloud config apply rebooted-in-3s mechanism. The
-  // upload task sets g_configRebootPending after a successful
-  // config rewrite; we restart here on Core 1 so the upload task
-  // unwinds cleanly first. Gate on !uploading so an in-flight
-  // upload of another file isn't truncated by the restart.
-  if (g_configRebootPending && (int32_t)(now - g_configRebootAtMs) >= 0
-      && !uploading && !triggerUpload) {
-    Serial.println("[CFGSYNC] Rebooting now for cloud config apply.");
-    delay(50);
-    esp_restart();
-  }
-
   // ----------------------------------------------------------
   // WiFi state management — MUST run before any handler call.
   //
   // (1) Sync wifiConnected with reality. WiFi.setAutoReconnect(false) means
   //     if the iPhone hotspot kicks an idle device, WiFi.status() flips to
-  //     WL_DISCONNECTED but our flag stays stale. Calling ArduinoOTA.handle()
-  //     or handleTelnet() against a dead stack panics the device.
+  //     WL_DISCONNECTED but our flag stays stale. Calling handleTelnet()
+  //     against a dead stack panics the device.
   //
   // (2) Honor teardown requests from the upload task. Core 0 sets the flag
   //     after a successful upload cycle; we tear down here on Core 1 because
@@ -549,19 +544,22 @@ void loop() {
     Serial.flush();
   }
 
-  // Handle OTA updates (highest priority) — gated behind ENABLE_ARDUINO_OTA
-  // because mDNS init + NimBLE active crashes the ESP32 (see top of file).
-  // Telnet is also skipped while wifiBusy: handleTelnet's WiFiServer/WiFiClient
+  // Telnet is skipped while wifiBusy: handleTelnet's WiFiServer/WiFiClient
   // calls share LWIP locks with Core 0's HTTP uploads and deadlock under
   // sustained contention (firmware 2026.05.03.03 hang).
   if (wifiConnected && !wifiBusy) {
-#if ENABLE_ARDUINO_OTA
-    ArduinoOTA.handle();
-    if (otaInProgress) return;  // Don't do anything else during OTA
-#endif
     g_loopSection = "telnet";
     handleTelnet();
   }
+
+  // BLE relay runs independent of WiFi state — it's not gated on wifiBusy
+  // like the central wind-sensor scan (pauseBLEForWiFi()): GATT-server
+  // notify/write servicing doesn't share NimBLEScan's documented
+  // WiFi-contention hang, and pausing it here would drop an in-flight
+  // phone relay transfer every time the device happens to also do a
+  // periodic WiFi health check.
+  g_loopSection = "ble-relay";
+  bleRelayTick();
 
   g_loopSection = "mesh";
   meshTick();

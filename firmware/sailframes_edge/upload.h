@@ -1,7 +1,7 @@
-// WiFi connect + S3 upload pipeline, running as a dedicated FreeRTOS task
-// pinned to Core 0 (sensor reads + logging stay on Core 1). Also owns the
-// dual-core hang-diagnostics task and the once-per-boot fleet-health /
-// boot-log snapshot uploads.
+// WiFi connect + XGSail device-protocol upload pipeline, running as a
+// dedicated FreeRTOS task pinned to Core 0 (sensor reads + logging stay on
+// Core 1). Also owns the dual-core hang-diagnostics task and the
+// once-per-boot health-snapshot push.
 #ifndef SAILFRAMES_UPLOAD_H
 #define SAILFRAMES_UPLOAD_H
 
@@ -41,17 +41,23 @@ bool isUploaded(const char* filepath);
 int  deleteUploadedFiles(const char* dirname);
 void markUploaded(const char* filepath);
 
+// Uploads one file via the XGSail device protocol (docs/device-protocol.md
+// §4.1): POST /api/devices/me/session-uploads, then PUT the raw bytes to
+// the returned presigned upload_url. No-ops (returns false) if the device
+// isn't claimed yet.
 bool uploadFile(const char* filepath);
 int  countFilesToUpload(const char* dirname);
-bool testS3Connection();
+// Cheap DNS+TCP reachability check against config.api_base_url — run
+// before a batch of uploads so a dead backend fails fast instead of
+// timing out per-file.
+bool testApiConnectivity();
 void uploadDirectory(const char* dirname);
 // Connects to the strongest configured WiFi network. Sets wifiConnected +
 // connectedSSID on success.
 bool connectWiFi();
 
-// Fleet-health snapshot + /boot.log tail, uploaded once per boot.
-bool uploadStatusSnapshot();
-bool uploadBootLogSnapshot();
+// Health snapshot (docs/device-protocol.md §4.4), pushed once per boot.
+bool uploadHealthSnapshot();
 void countPendingUploads();
 
 // Core-0 tasks (created from setup()).

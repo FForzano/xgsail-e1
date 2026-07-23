@@ -5,8 +5,9 @@
 E1 device firmware and hardware for [XGSail](https://github.com/FForzano/xgsail) —
 an ESP32 sailboat tracker: GNSS + IMU + wind + pressure logging, an
 ESP-NOW peer mesh for live fleet position sharing and on-course-side
-(OCS) race-start detection, and S3 upload over the XGSail device
-protocol.
+(OCS) race-start detection, and uploads over the XGSail device
+protocol — direct over WiFi, or relayed over BLE by the owner's phone
+when WiFi isn't available.
 
 > **xgsail-e1 is derived from `sailframes/core`**, the upstream hardware/
 > firmware project. It is not a GitHub fork of that repository (see
@@ -24,8 +25,9 @@ It provides:
 
 - Firmware (`firmware/sailframes_edge/`) — GNSS/IMU/wind/pressure sensor
   reads, SD-card session logging, an ESP-NOW peer mesh with on-course-side
-  (OCS) race-start detection, S3 upload, manifest-pull firmware updates,
-  cloud config sync, and a serial/telnet console.
+  (OCS) race-start detection, the XGSail device-protocol claim/upload flow
+  (direct over WiFi and a BLE GATT relay for when WiFi isn't available),
+  and a serial/telnet console.
 - Hardware (`hardware/`) — the KiCad 8+ schematic, PCB layout, Gerbers,
   and BOM for the E1 board.
 - Documentation (`docs/`) — the firmware's internal architecture, GNSS/RTK
@@ -34,8 +36,9 @@ It provides:
 
 The device talks to the XGSail backend through the hardware-agnostic
 ingestion contract documented in xgsail's `docs/device-protocol.md`
-(device claim, `DeviceKey` auth, presigned session uploads) — this repo
-implements that contract, it doesn't redefine it.
+(device claim, `DeviceKey` auth, presigned session uploads, and the BLE
+relay contract for WiFi-less operation) — this repo implements that
+contract, it doesn't redefine it.
 
 ## What xgsail-e1 Is Not
 
