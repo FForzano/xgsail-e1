@@ -47,7 +47,8 @@ void loadConfig() {
     else if (k == "wifi_pass") {
       v.toCharArray(config.wifi[0].pass, sizeof(config.wifi[0].pass));
     }
-    else if (k == "upload_url") v.toCharArray(config.upload_url, sizeof(config.upload_url));
+    else if (k == "api_base_url") v.toCharArray(config.api_base_url, sizeof(config.api_base_url));
+    else if (k == "claim_code") v.toCharArray(config.claim_code, sizeof(config.claim_code));
     else if (k == "boat_id") v.toCharArray(config.boat_id, sizeof(config.boat_id));
     else if (k == "wind_enabled") config.wind_enabled = (v == "true" || v == "1");
     else if (k == "wind_mac") v.toCharArray(config.wind_mac, sizeof(config.wind_mac));
@@ -60,7 +61,6 @@ void loadConfig() {
     // v2.0.0 foundation
     else if (k == "hardware_platform") v.toCharArray(config.hardware_platform, sizeof(config.hardware_platform));
     else if (k == "unit_role")         v.toCharArray(config.unit_role, sizeof(config.unit_role));
-    else if (k == "config_version")    config.config_version = v.toInt();
     else if (k == "rtk_enabled")       config.rtk_enabled = (v == "1" || v.equalsIgnoreCase("true"));
   }
   f.close();
@@ -91,8 +91,10 @@ void loadConfig() {
     Serial.printf(" (offset: %d°)", config.wind_offset);
   }
   Serial.println();
-  Serial.printf("[CFG] Platform: %s | Role: %s | Config version: %d\n",
-                hwName(g_hw), roleName(g_role), config.config_version);
+  Serial.printf("[CFG] Platform: %s | Role: %s\n", hwName(g_hw), roleName(g_role));
+  if (strlen(config.api_base_url) == 0) {
+    Serial.println("[CFG] WARNING: api_base_url not set — device-protocol calls will not work");
+  }
   Serial.printf("[CFG] Sample rates (firmware-baked): IMU %d ms | GNSS fix %d ms\n",
                 IMU_INTERVAL_MS, 1000 / 10);  // GNSS via PQTMCFGFIXRATE,W,100
 }

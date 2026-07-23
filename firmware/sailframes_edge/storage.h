@@ -29,6 +29,16 @@ void logIMU();
 // Recursively lists an SD directory to the current console (serial/telnet).
 void listDirOutput(const char* dirname, int depth, bool toTelnet);
 
+// Derives a file's session's started_at (ISO 8601 UTC, required by
+// xgsail's device-protocol session-uploads API) from its enclosing
+// "/sf/YYYYMMDD_HHMMSS/" folder name — see startLogging()'s naming
+// above. Falls back to the live GPS clock (only relevant for the
+// "session_NNN" fallback folder name); returns "" if neither source is
+// available. Shared by upload.cpp (WiFi path) and ble_relay.cpp (BLE
+// relay manifest) — both need the same session timestamp for the same
+// files.
+String sessionStartedAtIso(const char* filepath);
+
 // Converts esp_reset_reason_t to a short label for /boot.log readability.
 const char* resetReasonStr(esp_reset_reason_t r);
 // Appends one line to /boot.log, taking sdMutex with a short timeout so a

@@ -2,7 +2,9 @@
 
 ESP32 fleet-tracker firmware: GNSS + IMU + wind + pressure logging, an
 ESP-NOW peer mesh for live fleet position sharing and OCS (on-course-side)
-race-start detection, S3 upload, and a serial/telnet console.
+race-start detection, uploads over the XGSail device protocol (direct
+WiFi, or a BLE relay via the owner's phone when WiFi isn't available),
+and a serial/telnet console.
 
 ## Hardware
 
@@ -55,9 +57,14 @@ Arduino IDE or PlatformIO, sketch directory `sailframes_edge/`:
 - **Adafruit DPS310** — pressure/temperature driver
 - **NimBLE-Arduino** (pinned to 2.4.0 — see `docs/firmware-architecture.md`
   for why the version is pinned) — Calypso wind sensor BLE client
+  (central role) and the device-protocol BLE relay GATT server
+  (peripheral role), running concurrently
+- **ArduinoJson** (7.x) — JSON building/parsing for the device-protocol
+  HTTP calls (claim, session-uploads, health) and the BLE relay's
+  characteristic payloads
 
-ESP-NOW, WiFi, SD, and OTA/Update support come from the ESP32 Arduino
-core (pinned to 3.3.7 — also documented in `docs/firmware-architecture.md`).
+ESP-NOW, WiFi, and SD support come from the ESP32 Arduino core (pinned to
+3.3.7 — also documented in `docs/firmware-architecture.md`).
 
 ## Repository layout
 
@@ -73,12 +80,17 @@ sailframes_e1_diag/     # Standalone board-bring-up diagnostic sketch
 1. Format FAT32 (32GB or less recommended).
 2. Copy `sailframes_edge/config.txt` to the card's root and edit it:
    WiFi networks (`wifi1_ssid`/`wifi1_pass`, ...), `boat_id`, recording
-   speed thresholds, `unit_role` (`racing_boat`, `rc_signal`, ...).
+   speed thresholds, `unit_role` (`racing_boat`, `rc_signal`, ...),
+   `api_base_url` (the XGSail backend this device talks to), and
+   `claim_code` (see "Claiming the device" below).
 3. A `/wind_mac.txt` file (Calypso Mini MAC address) enables the wind
    sensor and speeds up reconnection — see `e1_sd_card/wind_mac.txt` for
    the format. Without it, the wind sensor is disabled.
 4. `/imu_cal.txt` stores the heel/pitch zero-offsets saved by the `cal`
    console command — see `e1_sd_card/imu_cal.txt`.
+5. `/device.txt` is firmware-owned (like `/boot.log`) — it holds the
+   `device_id`/`device_api_key` written by a successful claim. Don't
+   create or edit it by hand.
 
 ## Log files
 
@@ -97,23 +109,47 @@ A recording session auto-starts once boat speed sustains above
 the `stoprec` command (see `docs/firmware-architecture.md` for why
 speed-triggered *stop* was removed).
 
-## S3 upload
+## Claiming the device
+
+A device cannot upload anything until it's claimed (xgsail's
+`docs/device-protocol.md` §2) — there is no auto-registration on first
+upload. From the XGSail app, create a claim for this device to get a
+one-time `claim_code`, then either:
+
+- write it into `config.txt` as `claim_code=XXXXXXXX` before boot (the
+  upload task redeems it automatically, once, the first time WiFi
+  connects), or
+- power the device on and run the `claim <CODE>` console command, or
+- use the XGSail app's BLE relay (no WiFi needed at all — see "BLE relay"
+  below).
+
+Check status any time with the `device` console command. A lost
+`device_api_key` needs a fresh key from the app (`rotate-key`) rewritten
+onto the device by one of the methods above — the device cannot
+regenerate its own key.
+
+## Device-protocol upload
 
 Files upload automatically once the device is stationary (speed below
-~0.5 kt, or no GPS fix) for 30 seconds and a configured WiFi network is in
-range — no manual step needed. Each file gets a `.uploaded` marker so a
-session never re-uploads. Trigger it immediately with the `upload` console
-command, or check pending state with `status`.
+~0.5 kt, or no GPS fix) for 30 seconds, the device is claimed, and a
+configured WiFi network is in range — no manual step needed. Each of the
+session's CSVs (nav/imu/wind/pres — whichever sensors were actually
+present) uploads as its own call; a session missing a sensor (no wind
+paired, no pressure chip) uploads exactly the files it has. Each file
+gets a `.uploaded` marker so it's never re-sent by either upload path
+(WiFi or BLE relay). Trigger a cycle immediately with the `upload`
+console command, or check pending state with `status`.
 
-## Firmware updates (OTA)
+## BLE relay
 
-`ArduinoOTA` (the Arduino-IDE-over-WiFi upload path) is disabled by
-default — see `docs/firmware-architecture.md` for why. In practice,
-firmware ships as a manifest-pull update: CI publishes
-`firmware/<boat_id>/latest.json` (version, URL, SHA256) plus the `.bin` to
-the configured S3 bucket, and the device pulls + verifies + flashes it via
-the `update` console command (or automatically, once per boot, from the
-upload task). The very first flash must be over USB.
+Alongside direct WiFi upload, the device always advertises a BLE GATT
+service (xgsail's `docs/device-protocol.md` §8) that the XGSail phone app
+can use to relay the same claim + upload calls over Bluetooth — for a
+device with no WiFi configured at all, or when WiFi is temporarily out of
+range. It's a first-class path, not just a fallback: the service comes up
+at boot regardless of WiFi state. See `docs/firmware-architecture.md` for
+how `ble_relay.cpp` maps pending SD files onto the protocol's
+`session_manifest`/`session_data` characteristics.
 
 ## Serial / telnet console
 
@@ -139,14 +175,15 @@ Commands (`help` prints this list from the device):
 | `display` | Toggle display mode |
 | `heap` | Memory status |
 | `ls`, `list` / `cat <file>` / `cleanup` | SD card browsing + uploaded-file cleanup |
-| `upload` / `update` / `configsync` | Manual S3 upload / OTA pull / cloud config pull |
+| `upload` | Manual device-protocol upload cycle now |
+| `claim <CODE>` / `device` | Redeem a claim code / show external_id + claim status |
 | `wifi` / `disconnect` / `reboot` | Network + power control |
-| `hwid` / `role` / `configver` / `flags` / `radiomode` | Identity/config/state readouts |
+| `hwid` / `role` / `flags` / `radiomode` | Identity/config/state readouts |
 | `mesh` / `fleet` / `fleetwatch` / `classes` | ESP-NOW peer mesh + RC fleet OCS view |
 | `ocs` / `race arm <pinLat> <pinLon> <rcLat> <rcLon> <secs>` / `race disarm` | OCS state machine |
-| `statusup` | Upload a fleet-health snapshot to S3 now |
+| `health` | Push a health snapshot now |
 
-See `docs/firmware-architecture.md` for what the mesh/OCS/cloud-config
+See `docs/firmware-architecture.md` for what the mesh/OCS/device-protocol
 commands actually do, and `docs/gnss-rtk.md` for the GNSS-specific ones.
 
 ## WiFi configuration

@@ -10,7 +10,6 @@
 #include "ocs.h"
 #include "recording.h"
 #include "storage.h"
-#include "ota.h"
 #include "v2_types.h"
 
 // TFT Display - Hosyond 3.5" IPS ST7796U (480x320, SPI)
@@ -916,16 +915,11 @@ void updateDisplayD3() {
 }
 
 // Main display router
-// TFT (VSPI) and SD (HSPI) are on separate buses - no conflicts.
-// But TFT itself is shared between Core 0 (OTA progress paint) and
-// Core 1 (this normal display loop). TFT_eSPI is not thread-safe —
-// concurrent calls deadlock the VSPI peripheral. While OTA is in
-// flight, Core 0 owns the TFT exclusively; Core 1 stands down here.
+// TFT (VSPI) and SD (HSPI) are on separate buses - no conflicts. Only
+// Core 1 ever touches the TFT (Core 0's upload task is display-free), so
+// there's no cross-core TFT_eSPI contention to guard against here.
 
 void updateDisplay() {
-  if (otaInProgress) return;
-
-
   // RC fleet panel takes over the screen while this unit is the armed Race
   // Committee — a live, colour-coded table of every peer's distance-to-line
   // and OCS state. (Checked before the boat-local OCS alarm: a stationary

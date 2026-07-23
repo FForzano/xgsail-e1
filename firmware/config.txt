@@ -4,10 +4,24 @@
 # here.
 
 # Boat identifier (shown on the TFT splash screen, used in filenames and
-# as the ESP-NOW mesh sender_id).
+# as the ESP-NOW mesh sender_id). Not the device's upload identity — that's
+# external_id (the WiFi MAC), established once at claim time (see below).
 boat_id=E1
 
-# Up to 5 WiFi networks, tried in order until one connects.
+# XGSail backend base URL. All device-protocol calls (claim/confirm,
+# session-uploads, health) are relative to this.
+api_base_url=https://xgsail.example.com
+
+# One-time claim code from the XGSail app (docs/device-protocol.md §2).
+# Redeemed automatically the first time WiFi connects after boot, then
+# ignored — the device is claimed from then on (see /device.txt). Leave
+# blank if claiming via the `claim <CODE>` console command or the app's
+# BLE relay instead.
+claim_code=
+
+# Up to 5 WiFi networks, tried in order until one connects. Optional: the
+# device can also be claimed and uploaded to entirely over the app's BLE
+# relay, with no WiFi configured at all.
 wifi1_ssid=YourHomeNetwork
 wifi1_pass=changeme
 

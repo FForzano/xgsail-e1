@@ -29,9 +29,13 @@ ingestion-related in this firmware; don't duplicate it here.
 - **Build:** Arduino IDE or PlatformIO against `firmware/sailframes_edge/`
   (see `firmware/README.md` for board/library settings).
 - **Status:** ported from `sailframes/core` (via xgsail's own fork history)
-  and reorganized into per-responsibility modules; behavior is
-  byte-equivalent to the source firmware with the B1/successor-hardware
-  code paths removed (this repo is E1-only, see `docs/firmware-architecture.md`).
+  and reorganized into per-responsibility modules, with the B1/successor-
+  hardware code paths removed (this repo is E1-only, see
+  `docs/firmware-architecture.md`). The upload/identity layer has since
+  been rewritten against xgsail's current device-protocol (claim flow,
+  `DeviceKey` auth, session-upload API, BLE relay) — it is no longer
+  byte-equivalent to the source firmware's original ad-hoc S3/OTA
+  integration, which this repo does not carry forward.
 
 ---
 
@@ -44,7 +48,7 @@ backend/frontend:
   reading the code (or debugging it over a telnet console at a regatta),
   not for fewest lines.
 - **Isolate responsibilities.** Each module owns one subsystem's state and
-  behavior — `gnss.{h,cpp}` doesn't know about S3 upload, `display.{h,cpp}`
+  behavior — `gnss.{h,cpp}` doesn't know about device-protocol upload, `display.{h,cpp}`
   doesn't parse NMEA. `sailframes_edge.ino` stays a thin composition root:
   global object wiring, `setup()`, `loop()` — business logic (sensor
   reads, mesh/OCS logic, upload, console commands) lives in the modules
@@ -74,11 +78,11 @@ xgsail-e1/
 ├── README.md              # Project scope: what xgsail-e1 is / isn't
 ├── LICENSE                # Apache 2.0
 ├── docs/
-│   ├── firmware-architecture.md  # setup/loop, dual-core split, mesh, OCS, cloud config
+│   ├── firmware-architecture.md  # setup/loop, dual-core split, mesh, OCS, device protocol, BLE relay
 │   ├── gnss-rtk.md               # LG290P config, RTCM3/MSM, RTK, PPK post-processing
 │   └── hardware.md               # Power/battery, display, GPS-triggered recording
 ├── firmware/
-│   ├── README.md          # Build/flash, wiring, console commands, S3 upload/OTA
+│   ├── README.md          # Build/flash, wiring, console commands, device-protocol upload
 │   ├── config.txt         # Sample on-SD-card config (WiFi, boat_id, thresholds)
 │   ├── e1_sd_card/        # Sample imu_cal.txt / wind_mac.txt
 │   ├── i2c_scan/          # Standalone I2C bus scanner (bring-up/debug)
@@ -98,10 +102,11 @@ xgsail-e1/
 │       ├── ocs.h/.cpp            # On-course-side detection + RC fleet aggregation
 │       ├── display.h/.cpp        # TFT dashboard rendering (D1/D2/D3 + RC panels)
 │       ├── storage.h/.cpp        # SD session logging + /boot.log
-│       ├── ota.h/.cpp            # Telnet transport + manifest-pull firmware update
+│       ├── telnet.h/.cpp         # Telnet remote-console transport
 │       ├── console.h/.cpp        # Serial/telnet interactive command dispatcher
-│       ├── cloud_config.h/.cpp   # Cloud config-sync fetch/verify/apply
-│       ├── upload.h/.cpp         # WiFi connect + S3 upload (Core-0 task) + diagnostics
+│       ├── device_auth.h/.cpp    # Device identity, claim flow, DeviceKey HTTP helper
+│       ├── ble_relay.h/.cpp      # BLE GATT peripheral: WiFi-less claim/upload relay
+│       ├── upload.h/.cpp         # WiFi connect + device-protocol upload (Core-0 task) + diagnostics
 │       └── shared_state.h/.cpp   # Cross-cutting: hang-watchdog breadcrumbs, WiFi-busy gate, SD mutex
 └── hardware/              # KiCad 8+ project: schematic, PCB, Gerbers, BOM
 ```
@@ -123,14 +128,18 @@ not a change to how the firmware is built or flashed.
   → boat-state broadcast at 2 Hz; OCS module (ocs.cpp) computes over-line
     state locally and, for the RC unit, across the whole fleet
 
-[Upload] (upload.cpp, Core-0 FreeRTOS task)
-  → once stationary + WiFi in range: session CSVs → presigned S3 PUT,
-    matching xgsail's docs/device-protocol.md ingestion contract
-  → fleet-health snapshot + /boot.log tail, once per boot
-  → manifest-pull firmware update (ota.cpp) and cloud config sync
-    (cloud_config.cpp) piggyback on the same WiFi window
+[Device protocol] (device_auth.cpp: identity/claim/DeviceKey; upload.cpp,
+                    Core-0 FreeRTOS task: WiFi + the upload cycle itself)
+  → one-time claim (config.txt's claim_code, or the `claim` console
+    command) against xgsail's docs/device-protocol.md claim flow
+  → once stationary + WiFi in range: each pending session CSV → its own
+    POST /api/devices/me/session-uploads + presigned PUT
+  → health snapshot, once per boot
+  → ble_relay.cpp: the same claim/upload calls, relayed over a BLE GATT
+    server by the owner's phone app when WiFi isn't available — a
+    first-class path, not just a fallback, so it's always advertising
 ```
 
-See `docs/firmware-architecture.md` for the mesh/OCS/cloud-config design
-in more detail, and xgsail's `docs/device-protocol.md` for the claim flow
-and upload API this firmware talks to.
+See `docs/firmware-architecture.md` for the mesh/OCS/device-protocol/BLE-relay
+design in more detail, and xgsail's `docs/device-protocol.md` for the claim
+flow and upload API this firmware talks to.

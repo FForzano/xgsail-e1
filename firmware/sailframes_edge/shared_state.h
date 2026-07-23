@@ -32,4 +32,18 @@ extern volatile bool wifiBusy;
 // Flag to skip display updates during SD writes.
 extern volatile bool sdWriting;
 
+// Set by recording.cpp when a session stops; consumed by upload.cpp to
+// kick off an upload cycle. Cleared by upload.cpp once it picks it up.
+extern bool triggerUpload;
+// Set by upload.cpp once an upload cycle is fully done; consumed by the
+// main loop (Core 1) to actually disconnect WiFi — teardown must happen
+// on Core 1 since it owns the telnet/WiFi handlers upload.cpp must not
+// race against.
+extern bool wifiTeardownRequested;
+
+// Core 1 must call back into the main loop at least this often; the diag
+// task force-restarts the device if g_loopIter hasn't advanced for this
+// long (turns a permanent hang into a recoverable reboot).
+extern const unsigned long LOOP_HANG_MS;
+
 #endif  // SAILFRAMES_SHARED_STATE_H

@@ -1,5 +1,5 @@
 // Interactive command console — shared by the USB-serial line and the
-// telnet client (ota.cpp's handleTelnet feeds lines here too). One large
+// telnet client (telnet.cpp's handleTelnet feeds lines here too). One large
 // dispatcher (`status`, `gps`, `imu`, `ls`, `cat`, `upload`, `wifi`,
 // `reboot`, `race arm`, ... — see the `help` command's own listing for
 // the full set) rather than a command-per-file, since every branch is a

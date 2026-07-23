@@ -4,6 +4,8 @@
 #include "gnss.h"
 #include "storage.h"
 #include "display.h"
+#include "upload.h"
+#include "shared_state.h"
 
 // Calypso BLE UUIDs (Environmental Sensing Service 0x181A)
 static NimBLEUUID WIND_SERVICE_UUID("181A");

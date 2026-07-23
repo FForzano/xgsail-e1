@@ -1,8 +1,9 @@
 # Firmware architecture
 
-How the E1 firmware is put together: the dual-core split, the ESP-NOW
-peer mesh, on-course-side (OCS) race-start detection, unit roles, and
-cloud config sync. Written against the actual module layout in
+How the E1 firmware is put together: the dual-core split, the XGSail
+device-protocol claim/upload flow (WiFi and its BLE relay fallback), the
+ESP-NOW peer mesh, on-course-side (OCS) race-start detection, and unit
+roles. Written against the actual module layout in
 `firmware/sailframes_edge/` (see `CLAUDE.md` for the file-per-module map)
 — if something here and the source disagree, the source wins.
 
@@ -11,9 +12,9 @@ cloud config sync. Written against the actual module layout in
 `setup()` creates two additional FreeRTOS tasks pinned to **Core 0**,
 leaving Arduino's own `loop()` running on **Core 1**:
 
-- `uploadTaskFunc` (`upload.cpp`) — WiFi connect, S3 upload, OTA pull,
-  cloud config sync, and the periodic fleet-health/boot-log snapshots.
-  Everything that touches the WiFi/HTTP stack lives here so Core 1's
+- `uploadTaskFunc` (`upload.cpp`) — WiFi connect, the device-protocol
+  session-upload cycle, claim attempts, and the periodic health-snapshot
+  push. Everything that touches the WiFi/HTTP stack lives here so Core 1's
   sensor reads and SD logging are never blocked by a slow upload.
 - `diagnosticsTask` (`upload.cpp`) — an independent heartbeat that keeps
   running even if Core 1 hangs, printing `g_loopSection` (Core 1's last
@@ -96,25 +97,73 @@ sequence.
 tracked and logged on transition (`radioModeTransition()`, `mesh.cpp`)
 for `/boot.log` forensics; this repo's build is E1-only, so
 `HardwarePlatform` (`g_hw`) is always `HW_E1` regardless of what
-`hardware_platform` says in `config.txt` (kept in `Config` for on-disk/
-cloud-config compatibility with the wider SailFrames Core fleet, which
-also has other hardware platforms — see `README.md`).
+`hardware_platform` says in `config.txt` (kept in `Config` for on-disk
+compatibility with the wider SailFrames Core fleet, which also has other
+hardware platforms — see `README.md`).
 
-## Cloud config sync (`cloud_config.{h,cpp}`)
+## Device protocol: identity, claim, and uploads (`device_auth.{h,cpp}`, `upload.{h,cpp}`)
 
-Mirrors the OTA manifest-pull pattern (`docs/gnss-rtk.md`'s sibling,
-`ota.cpp`): fetches a manifest, verifies a SHA256 over the config body,
-and merges only **allow-listed** keys into `/config.txt` —
-`CLOUD_CONFIG_ALLOW_KEYS` in `cloud_config.cpp` is exactly:
-`wind_enabled`, `wind_offset`, `start_speed_knots`, `stop_speed_knots`,
-`start_delay_sec`, `stop_delay_sec`, `unit_role`, `rtk_enabled`. Identity
-and connectivity keys — `boat_id`, `wifi*`, `wind_mac`, `s3_*` — are
-**deliberately excluded**: a bad push must never be able to lock a boat
-off the network or change the identity hash its mesh peers and the class
-registry key off of. Applying a synced config schedules a reboot 3
-seconds out (`g_configRebootPending`/`g_configRebootAtMs`, applied from
-`loop()` once no upload is in flight) rather than rebooting immediately,
-so the upload task gets to unwind cleanly first.
+Implements xgsail's `docs/device-protocol.md` exactly — that document is
+the source of truth for the wire shapes; this is how the E1 firmware
+happens to drive them.
+
+- **Identity** (`device_auth.h`'s `externalId()`): the ESP32's WiFi MAC
+  address, stable across reboots, requiring no configuration.
+- **Claim** (`claimDevice()`): `config.txt`'s `claim_code=` (read once at
+  boot by `uploadTaskFunc` as soon as WiFi first connects) or the
+  `claim <CODE>` console command call `POST /api/devices/claim/confirm`.
+  On success, `device_id` + `device_api_key` persist to `/device.txt` — a
+  firmware-owned file, parallel to `/boot.log`, never the user-edited
+  `config.txt`. `isClaimed()` only requires a usable `device_api_key`;
+  `device_id` is display metadata, not a precondition — the BLE relay's
+  `provisioning` characteristic (below) only ever delivers the key.
+- **Authenticated calls** (`apiRequest()`): every `/api/devices/me/...`
+  call adds `Authorization: DeviceKey <key>`. Chooses `WiFiClientSecure`
+  or `WiFiClient` based on `config.api_base_url`'s scheme.
+- **Uploads** (`uploadFile()`, called once per pending SD file — nav/imu/
+  wind/pres CSVs are independent files, uploaded independently, matching
+  the backend's one-`session_upload`-row-per-file model): `POST
+  /api/devices/me/session-uploads` with `is_final=true` (E1 never uses
+  the incremental/chunked case), then a manually-chunked `PUT` of the raw
+  bytes to the returned presigned `upload_url` (own chunk loop rather
+  than `HTTPClient::sendRequest`, so the task watchdog gets fed every
+  chunk on multi-minute transfers). A PUT failure `PATCH`es the upload as
+  `"failed"`; success sends no `PATCH` at all — `is_final` was already
+  true on the opening `POST`, and the object-storage `PUT` completing is
+  what actually finalizes the data server-side.
+- **Health** (`uploadHealthSnapshot()`): the 5-field `POST
+  /api/devices/me/health` snapshot, once per boot.
+- Sessions with only some sensors present (no wind sensor paired, no
+  pressure chip detected) upload exactly the files that exist — nothing
+  waits for or assumes all four CSVs.
+
+## BLE relay (`ble_relay.{h,cpp}`)
+
+A NimBLE **peripheral** GATT server implementing `docs/device-protocol.md`
+§8: lets the owner's phone app relay the claim + session-upload calls
+above over Bluetooth instead of WiFi. This is a first-class upload path,
+not a WiFi-down fallback — `bleRelayInit()` runs unconditionally from
+`setup()` and brings up BLE itself (`NimBLEDevice::init()`) if the
+wind-sensor central role (`wind_sensor.cpp`) hasn't already, since a boat
+with no wind sensor paired and no WiFi configured still needs a way in.
+NimBLE-Arduino runs both roles concurrently (`sailframes_edge.ino`'s
+`CONFIG_BT_NIMBLE_ROLE_*` — central for the Calypso wind sensor, peripheral
+for this relay).
+
+Each pending SD file (same file-driven pending list `upload.cpp` walks) is
+one `session_manifest` entry, keyed by its SD path as the manifest's
+`session_id` — the device never learns the backend's real
+`session_id`/`session_upload_id`, since per the protocol it's the phone
+app that calls `session-uploads`/`PUT`/`PATCH` itself; the device only
+serves its own file inventory (`session_manifest`) and streams bytes on
+request (`session_data`, notified in `bleRelayTick()` from the main
+loop, sequence-indexed 4KB-ish chunks sized to the connection's actual
+negotiated MTU). `control`'s `ack-uploaded` reuses `upload.cpp`'s own
+`.uploaded` marker (`markUploaded()`) — a file relayed over BLE is never
+re-offered by either upload path afterward. `provisioning` (the only
+characteristic that can carry `device_api_key`) requires a bonded,
+encrypted link (`NimBLEDevice::setSecurityAuth(true, true, true)`);
+nothing else on the service does.
 
 ## Console (`console.{h,cpp}`)
 

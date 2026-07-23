@@ -76,20 +76,6 @@
 // at runtime via the serial 'telneton' command if you need to debug live.
 #define TELNET_ENABLED_DEFAULT  false
 
-// ArduinoOTA registers an mDNS multicast UDP listener. On ESP32 Arduino
-// Core 3.3.7 with NimBLE active for the wind sensor, the mDNS init at
-// WiFi-up time crosses into the BLE/WiFi shared-radio coexistence path
-// and panics with "spinlock_release ... core_owner_id == lock->owner"
-// (firmware 2026.05.02.04 fleet test). The user does not currently use
-// ArduinoOTA — fleet firmware is flashed via USB, and the manifest-pull
-// OTA update (ota.h/.cpp) pulls binaries via Update.h on a manifest GET
-// (no passive listener).
-#define ENABLE_ARDUINO_OTA  0
-
-// Home WiFi SSID. Boats prefer this network when in range. OTA pull
-// is gated to this SSID — see performOTAUpdate.
-#define HOME_WIFI_SSID "Home-IOT"
-
 #define GPS_BAUD      460800  // LG290P configured rate
 #define SERIAL_BAUD   115200
 #define SCREEN_WIDTH  320     // E1: 3.5" ST7796 portrait width
@@ -128,14 +114,22 @@ struct WiFiNetwork {
 struct Config {
   WiFiNetwork wifi[MAX_WIFI_NETWORKS];
   int wifi_count = 0;
-  char upload_url[256] = "https://p9s9eia0t6.execute-api.us-east-1.amazonaws.com/prod/upload";  // Legacy, not used
-  char s3_bucket[128] = "sailframes-fleet-data-prod";
-  char s3_region[32] = "us-east-1";
+  // XGSail backend base URL (e.g. "https://xgsail.example.com" or a
+  // self-hosted "http://192.168.1.50:8000"). All device-protocol calls
+  // (claim/confirm, session-uploads, health) are relative to this.
+  char api_base_url[128] = "";
+  // One-shot claim code (docs/device-protocol.md §2), written by the user
+  // into config.txt before first boot, or supplied via the `claim <CODE>`
+  // console command. Consumed by device_auth.cpp's claim flow; ignored
+  // once the device is already claimed (see device_auth.h's isClaimed()).
+  char claim_code[16] = "";
   char boat_id[16] = "UNCFG";  // Non-colliding sentinel. If config.txt is missing/blank (SD reads OK
                                // but no boat_id), the device joins the mesh as "UNCFG" rather than
                                // impersonating a real boat. A default of a real ID ("E1") would put a
                                // duplicate FNV-1a sender_id on the mesh, corrupting peers/OCS/registry.
                                // (SD-unreadable is handled separately by the boot-time SD fault gate.)
+                               // Still the mesh-identity/filename-prefix/splash-screen string — the
+                               // device's actual upload identity is external_id (device_auth.h).
   char wind_mac[20] = "";  // Calypso Mini MAC (loaded from /wind_mac.txt if present)
   bool wind_enabled = false;  // Auto-enabled if /wind_mac.txt exists on SD
   int wind_offset = 0;  // Heading offset in degrees (added to raw AWA for sensor mounting correction)
@@ -148,11 +142,9 @@ struct Config {
   // v2.0.0 foundation (SF_FIRMWARE_V2_SPEC.md Stage 1)
   char hardware_platform[8] = "e1";       // always "e1" in this repo
   char unit_role[24]        = "racing_boat";
-  int  config_version       = 0;          // bumped by cloud config sync (Stage 3)
   // RTK Phase-2 (docs/RTK_PHASE2_DESIGN.md). SD-config ONLY — deliberately NOT
   // cloud-allow-listed: flipping it reconfigures the GNSS (base/rover RTK) and
-  // is a physical bring-up act, not a remote push. Default off ⇒ byte-identical
-  // to pre-RTK behavior, so an OTA that ships this code changes nothing until set.
+  // is a physical bring-up act, not a remote push.
   bool rtk_enabled          = false;
 };
 
