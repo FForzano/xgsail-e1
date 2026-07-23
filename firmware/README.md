@@ -66,6 +66,29 @@ Arduino IDE or PlatformIO, sketch directory `sailframes_edge/`:
 ESP-NOW, WiFi, and SD support come from the ESP32 Arduino core (pinned to
 3.3.7 — also documented in `docs/firmware-architecture.md`).
 
+### Prebuilt binaries
+
+`.github/workflows/firmware-release.yml` builds this sketch with
+`arduino-cli` (same board settings and pinned versions as above) on every
+`v*` tag, and on demand from the Actions tab. It attaches to the release:
+
+- `...-merged.bin` — bootloader + partition table + app in one image,
+  flashed at offset `0x0`
+- `...-app.bin` / `...-bootloader.bin` / `...-partitions.bin` — the
+  individual images, for flashing the app alone at `0x10000`
+- `SHA256SUMS.txt`
+
+Flashing a downloaded build needs only esptool (`pip install esptool`),
+no toolchain:
+
+```
+esptool.py --chip esp32 --port /dev/ttyUSB0 --baud 921600 \
+  write_flash 0x0 sailframes_edge-<version>-merged.bin
+```
+
+Flashing replaces the firmware only — `config.txt`, `device.txt` and the
+recorded sessions live on the SD card and are untouched.
+
 ## Repository layout
 
 ```
