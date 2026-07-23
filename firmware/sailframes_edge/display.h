@@ -19,6 +19,12 @@ extern bool d3LayoutDrawn;  // reset to force a full D3 redraw
 extern bool g_rcPanelShown;
 extern bool g_rcPrePanelShown;
 
+// RC panel layout/clock constants (display.cpp's drawRcClock()/
+// drawRcFooter() and the row-count math in drawRcFleetPanel()/
+// drawRcPreRacePanel()).
+#define RC_FOOTER_H          30  // px reserved at the bottom for "FW x.y / BAT n%" (matches D2_TOPBAR_H's single text row)
+#define RC_CLOCK_TZ_OFFSET_MIN 0 // minutes added to GPS UTC for the RC clock's displayed time; 0 = show UTC
+
 // Short WiFi indicator ("Home", "P", "WiFi", or "") for the status bar.
 const char* getWifiIndicator();
 

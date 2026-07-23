@@ -17,7 +17,9 @@
 #include "upload.h"
 #include "device_auth.h"
 #include "shared_state.h"
+#include "wind_sensor.h"
 #include <SD.h>
+#include <WiFiClientSecure.h>
 
 void tprint(const char* msg) {
   Serial.print(msg);
@@ -547,15 +549,7 @@ void processCommand(String cmd, bool fromTelnet) {
     }
     tprintln("Deinitializing BLE to free memory...");
     tprintf("Heap before: %u bytes\n", ESP.getFreeHeap());
-    if (pWindClient && pWindClient->isConnected()) {
-      pWindClient->disconnect();
-    }
-    pWindClient = nullptr;
-    pWindSpeedChar = nullptr;
-    pWindDirChar = nullptr;
-    pBatteryChar = nullptr;
-    pDataChar = nullptr;
-    wind.connected = false;
+    disconnectWindClient();
     NimBLEDevice::deinit(false);
     bleInitialized = false;
     delay(500);

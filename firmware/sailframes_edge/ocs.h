@@ -53,6 +53,7 @@ extern OCSState g_ocs;
 extern unsigned long g_ocs_last_tick_ms;
 extern unsigned long g_rc_last_tick_ms;
 extern bool g_fleetWatch;
+extern unsigned long g_fleetWatchLast;  // millis() of the last fleetwatch repaint (ocs.cpp's ~2 Hz throttle)
 
 void ocsDisarm();
 // Arms boat-local OCS with the start line (PIN->RC) and start time.

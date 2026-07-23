@@ -371,6 +371,21 @@ void forceWindReconnect() {
   wind.connected = false;
 }
 
+// Full teardown ahead of NimBLEDevice::deinit() (console.cpp's `bledeinit`)
+// — unlike forceWindReconnect(), also drops the characteristic pointers,
+// since deinit() invalidates them.
+void disconnectWindClient() {
+  if (pWindClient && pWindClient->isConnected()) {
+    pWindClient->disconnect();
+  }
+  pWindClient = nullptr;
+  pWindSpeedChar = nullptr;
+  pWindDirChar = nullptr;
+  pBatteryChar = nullptr;
+  pDataChar = nullptr;
+  wind.connected = false;
+}
+
 void checkWindConnection() {
   if (!config.wind_enabled) return;
 
@@ -410,5 +425,3 @@ void logWind() {
   wind.newData = false;
   sdWriting = false;
 }
-
-#endif // ENABLE_WIND

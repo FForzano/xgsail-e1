@@ -7,6 +7,8 @@
 #include "storage.h"
 #include "config.h"
 #include "v2_types.h"
+#include "shared_state.h"  // wifiBusy
+#include <esp_now.h>       // esp_now_send
 
 RtcmFramer           g_rtcmTx;             // RC base: Serial2 RTCM frames (loop ctx only)
 RtcmReassembler      g_rtcmRx;             // rover: ESP-NOW frags (recv-cb ctx only)

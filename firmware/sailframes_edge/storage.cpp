@@ -14,7 +14,7 @@ File navFile, imuFile, windFile, presFile;
 unsigned long logStart = 0;
 unsigned long totalBytes = 0;
 
-static const char* resetReasonStr(esp_reset_reason_t r) {
+const char* resetReasonStr(esp_reset_reason_t r) {
   switch (r) {
     case ESP_RST_POWERON:    return "POWERON";
     case ESP_RST_EXT:        return "EXT";

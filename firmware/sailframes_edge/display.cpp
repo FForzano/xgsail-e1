@@ -11,6 +11,8 @@
 #include "recording.h"
 #include "storage.h"
 #include "v2_types.h"
+#include "upload.h"  // wifiConnected, connectedSSID, uploading/uploadCount/uploadTotal, pendingUploads
+#include <WiFi.h>
 
 // TFT Display - Hosyond 3.5" IPS ST7796U (480x320, SPI)
 // Using TFT_eSPI library with User_Setup.h configuration
@@ -675,7 +677,7 @@ void updateDisplayD2() {
 static float prevD3AWS = -1, prevD3AWA = -1, prevD3TWS = -1, prevD3TWA = -1;
 static float prevD3TWD = -1, prevD3SOG = -1, prevD3COG = -1, prevD3HDOP = -1;
 static int prevD3RecState = -1, prevD3Sats = -1, prevD3FixQ = -1;
-static bool d3LayoutDrawn = false;
+bool d3LayoutDrawn = false;  // extern'd in display.h — console.cpp's `display` command resets it too
 
 void updateDisplayD3() {
   if (!oledOK) return;

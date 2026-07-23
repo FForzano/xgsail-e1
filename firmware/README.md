@@ -49,7 +49,11 @@ Arduino IDE or PlatformIO, sketch directory `sailframes_edge/`:
 - **Board:** ESP32 Dev Module
 - **Upload speed:** 921600
 - **Flash frequency:** 80 MHz
-- **Partition scheme:** Default 4MB with spiffs
+- **Partition scheme:** No OTA (2MB APP/2MB SPIFFS) — this firmware has no
+  OTA update path, so the default scheme's second (unused) OTA app slot
+  just wastes flash; at ~1.6MB (TFT_eSPI + NimBLE + ArduinoJson + BNO08x/
+  DPS310 + WiFi/TLS), the *default* scheme's 1.2MB app partition is too
+  small to link at all
 
 ### Libraries (Arduino Library Manager)
 

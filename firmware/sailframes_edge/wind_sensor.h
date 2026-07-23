@@ -45,4 +45,16 @@ void checkWindConnection();
 // Appends the current wind reading to the session's wind CSV.
 void logWind();
 
+// Scans for a Calypso Mini and connects — the console's `windscan`/
+// `bleconnect <mac>` commands (console.cpp) drive these directly for
+// manual bring-up/debug, alongside the normal auto-reconnect path above.
+bool scanForCalypso();
+bool connectToCalypso();
+
+// Disconnects the current Calypso client and clears this module's
+// connection-state pointers, ahead of a full NimBLEDevice::deinit() —
+// see console.cpp's `bledeinit`. Keeps the BLE client/characteristic
+// pointers as this module's own state rather than exposing them.
+void disconnectWindClient();
+
 #endif  // SAILFRAMES_WIND_SENSOR_H

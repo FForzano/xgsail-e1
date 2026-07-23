@@ -19,7 +19,7 @@ permissions:
 env:
   SKETCH: firmware/sailframes_edge
   # Board settings from firmware/README.md ("Building and flashing")
-  FQBN: esp32:esp32:esp32:PartitionScheme=default,FlashFreq=80,UploadSpeed=921600
+  FQBN: esp32:esp32:esp32:PartitionScheme=no_ota,FlashFreq=80,UploadSpeed=921600
   ESP32_CORE_VERSION: '3.3.7'
   NIMBLE_VERSION: '2.4.0'
 

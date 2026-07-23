@@ -20,6 +20,8 @@
 
 #include <stdint.h>
 #include <string.h>
+#include <Arduino.h>                 // millis()
+#include "freertos/FreeRTOS.h"       // must precede stream_buffer.h (BaseType_t/TickType_t)
 #include "freertos/stream_buffer.h"  // StreamBufferHandle_t: RTCM ring rover-side
 #include "mesh.h"   // MeshHeader, MSG_RTCM_FRAG, RtcmFragPayload, RTCM_FRAG_MAX
 
