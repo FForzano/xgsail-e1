@@ -16,6 +16,13 @@ float stopSpeedKnots = 0.5;
 unsigned long startDelayMs = 10000;
 unsigned long stopDelayMs = 180000;
 
+void applyRecordingThresholds() {
+  startSpeedKnots = config.start_speed_knots;
+  stopSpeedKnots = config.stop_speed_knots;
+  startDelayMs = config.start_delay_sec * 1000UL;
+  stopDelayMs = config.stop_delay_sec * 1000UL;
+}
+
 // Power control: Use hardware slide switch on PowerBoost EN pin
 // No software shutdown - hardware switch cuts all power
 void updateRecordingState() {

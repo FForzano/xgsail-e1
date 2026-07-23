@@ -142,9 +142,11 @@ struct Config {
   // v2.0.0 foundation (SF_FIRMWARE_V2_SPEC.md Stage 1)
   char hardware_platform[8] = "e1";       // always "e1" in this repo
   char unit_role[24]        = "racing_boat";
-  // RTK Phase-2 (docs/RTK_PHASE2_DESIGN.md). SD-config ONLY — deliberately NOT
-  // cloud-allow-listed: flipping it reconfigures the GNSS (base/rover RTK) and
-  // is a physical bring-up act, not a remote push.
+  // RTK Phase-2 (docs/RTK_PHASE2_DESIGN.md). Flipping it reconfigures the
+  // GNSS (base/rover RTK) — see ble_relay.cpp's device_config write
+  // handler, which re-runs gnssConfigure() after changing this. BLE
+  // configurability (not a cloud push) is deliberate: a bonded BLE write
+  // requires physical proximity to the boat, unlike a remote push.
   bool rtk_enabled          = false;
 };
 
@@ -153,5 +155,10 @@ extern Config config;
 // Loads/parses /config.txt on SD into `config` (WiFi creds, boat_id, wind
 // sensor, role, recording thresholds, RTK enable).
 void loadConfig();
+// Resolves config.unit_role into g_role — see config.cpp.
+void applyUnitRole();
+// Rewrites /config.txt from the current in-memory `config` — see
+// config.cpp for the caller-locking contract (sdMutex).
+void saveConfig();
 
 #endif  // SAILFRAMES_CONFIG_H

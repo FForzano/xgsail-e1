@@ -162,8 +162,27 @@ negotiated MTU). `control`'s `ack-uploaded` reuses `upload.cpp`'s own
 `.uploaded` marker (`markUploaded()`) — a file relayed over BLE is never
 re-offered by either upload path afterward. `provisioning` (the only
 characteristic that can carry `device_api_key`) requires a bonded,
-encrypted link (`NimBLEDevice::setSecurityAuth(true, true, true)`);
-nothing else on the service does.
+encrypted link (`NimBLEDevice::setSecurityAuth(true, true, true)`); so
+does `device_config`'s write, for the same reason (it can carry a WiFi
+password) — see below.
+
+The same service also carries an E1-specific extension beyond
+`docs/device-protocol.md` §8: a `device_config` characteristic for live
+remote configuration (WiFi credentials, boat identity, recording
+thresholds, RTK enable, ...) and two extra `control` commands
+(`calibrate`/`calibrate-reset`) for IMU calibration. Full field-by-field
+spec in `docs/ble-config.md` — not duplicated here. Every field applies
+live, no reboot, by calling the small refresh helper its owning module
+already exposes (`applyUnitRole()`, `applyRecordingThresholds()`,
+`forceWindReconnect()`, `gnssConfigure()`, `boatIdHash()`) rather than
+requiring a fresh `loadConfig()` pass.
+
+Because BLE callbacks run on the NimBLE host's own FreeRTOS task — a
+third execution context beyond Core 1's `loop()` and Core 0's upload
+task — every SD access reachable from any characteristic's callback
+(not just the new ones) takes `sdMutex` with a short skip-if-busy
+timeout, the same convention `storage.cpp`'s `appendBootLog()` and
+`upload.cpp`'s `countPendingUploads()` already use.
 
 ## Console (`console.{h,cpp}`)
 

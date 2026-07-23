@@ -6,6 +6,20 @@
 
 Config config;
 
+// Resolves config.unit_role (string) into g_role (enum) — shared by
+// loadConfig() (boot) and ble_relay.cpp's device_config write handler
+// (live BLE update), so the string->enum mapping lives in exactly one
+// place.
+void applyUnitRole() {
+  if      (strcasecmp(config.unit_role, "racing_boat")     == 0) g_role = ROLE_RACING_BOAT;
+  else if (strcasecmp(config.unit_role, "rc_signal")       == 0) g_role = ROLE_RC_SIGNAL;
+  else if (strcasecmp(config.unit_role, "rc_pin")          == 0) g_role = ROLE_RC_PIN;
+  else if (strcasecmp(config.unit_role, "mark")            == 0) g_role = ROLE_MARK;
+  else if (strcasecmp(config.unit_role, "committee_chase") == 0) g_role = ROLE_COMMITTEE_CHASE;
+  else if (strcasecmp(config.unit_role, "spare")           == 0) g_role = ROLE_SPARE;
+  else                                                            g_role = ROLE_RACING_BOAT;
+}
+
 void loadConfig() {
   File f = SD.open("/config.txt", FILE_READ);
   if (!f) { Serial.println("[CFG] No config.txt"); return; }
@@ -66,17 +80,11 @@ void loadConfig() {
   f.close();
 
   // This build is E1-only, so g_hw is always HW_E1 regardless of what
-  // hardware_platform says (kept in Config for on-disk/cloud-config
-  // compatibility with the wider SailFrames Core fleet).
+  // hardware_platform says (kept in Config for on-disk compatibility with
+  // the wider SailFrames Core fleet).
   g_hw = HW_E1;
 
-  if      (strcasecmp(config.unit_role, "racing_boat")     == 0) g_role = ROLE_RACING_BOAT;
-  else if (strcasecmp(config.unit_role, "rc_signal")       == 0) g_role = ROLE_RC_SIGNAL;
-  else if (strcasecmp(config.unit_role, "rc_pin")          == 0) g_role = ROLE_RC_PIN;
-  else if (strcasecmp(config.unit_role, "mark")            == 0) g_role = ROLE_MARK;
-  else if (strcasecmp(config.unit_role, "committee_chase") == 0) g_role = ROLE_COMMITTEE_CHASE;
-  else if (strcasecmp(config.unit_role, "spare")           == 0) g_role = ROLE_SPARE;
-  else                                                            g_role = ROLE_RACING_BOAT;
+  applyUnitRole();
 
   Serial.printf("[CFG] Boat: %s, WiFi networks: %d\n",
     config.boat_id, config.wifi_count);
@@ -97,4 +105,46 @@ void loadConfig() {
   }
   Serial.printf("[CFG] Sample rates (firmware-baked): IMU %d ms | GNSS fix %d ms\n",
                 IMU_INTERVAL_MS, 1000 / 10);  // GNSS via PQTMCFGFIXRATE,W,100
+}
+
+// Rewrites /config.txt from the current in-memory `config`, in the same
+// key=value shape loadConfig() parses — round-trips every field it
+// understands, but does NOT preserve hand-written comments/blank-line
+// formatting from whatever was there before (see docs/ble-config.md).
+// Called after a BLE device_config write (ble_relay.cpp); the caller
+// holds sdMutex around this call (and the rest of the write's SD/state
+// changes) since it may run on the NimBLE host task, a context distinct
+// from both Core 1's loop() and Core 0's upload task.
+void saveConfig() {
+  File f = SD.open("/config.txt", FILE_WRITE);
+  if (!f) {
+    Serial.println("[CFG] saveConfig: cannot open /config.txt for write");
+    return;
+  }
+
+  f.println("# Rewritten by BLE device_config write — see docs/ble-config.md");
+  f.printf("boat_id=%s\n", config.boat_id);
+  f.printf("api_base_url=%s\n", config.api_base_url);
+  f.printf("claim_code=%s\n", config.claim_code);
+  f.println();
+  for (int i = 0; i < config.wifi_count; i++) {
+    f.printf("wifi%d_ssid=%s\n", i + 1, config.wifi[i].ssid);
+    f.printf("wifi%d_pass=%s\n", i + 1, config.wifi[i].pass);
+  }
+  f.println();
+  f.printf("wind_mac=%s\n", config.wind_mac);
+  f.printf("wind_enabled=%s\n", config.wind_enabled ? "true" : "false");
+  f.printf("wind_offset=%d\n", config.wind_offset);
+  f.println();
+  f.printf("start_speed_knots=%.2f\n", config.start_speed_knots);
+  f.printf("stop_speed_knots=%.2f\n", config.stop_speed_knots);
+  f.printf("start_delay_sec=%d\n", config.start_delay_sec);
+  f.printf("stop_delay_sec=%d\n", config.stop_delay_sec);
+  f.println();
+  f.printf("hardware_platform=%s\n", config.hardware_platform);
+  f.printf("unit_role=%s\n", config.unit_role);
+  f.printf("rtk_enabled=%s\n", config.rtk_enabled ? "true" : "false");
+  f.close();
+
+  Serial.println("[CFG] saveConfig: /config.txt rewritten");
 }

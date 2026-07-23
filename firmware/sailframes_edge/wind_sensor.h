@@ -26,9 +26,20 @@ extern bool bleInitialized;  // Track BLE init state for safe deinit
 
 // Initialize BLE + connect if /wind_mac.txt is present on SD (enables wind).
 void initWindSensor();
+// Persists a Calypso MAC to /wind_mac.txt + config.wind_mac (does not set
+// wind_enabled — callers that mean to enable wind by setting a MAC do
+// that themselves, matching loadWindMAC()'s boot-time behavior).
+void saveWindMAC(const char* mac);
+// Loads /wind_mac.txt into config.wind_mac and sets config.wind_enabled
+// if a valid-looking MAC was found. Called once at boot (initWindSensor()).
+void loadWindMAC();
 // Stop any in-flight BLE scan/connection before WiFi work begins (shared
 // ESP32 radio — sustained WiFi traffic can stall NimBLE without a timeout).
 void pauseBLEForWiFi();
+// Disconnects the current Calypso client after config.wind_mac changes
+// live (BLE device_config write) so the next reconnect cycle targets the
+// new MAC.
+void forceWindReconnect();
 // Reconnect if disconnected and enough time has passed since the last try.
 void checkWindConnection();
 // Appends the current wind reading to the session's wind CSV.

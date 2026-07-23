@@ -215,3 +215,11 @@ void calibrateIMU() {
     imuHeelOffset, imuPitchOffset);
 }
 
+// Clears both offsets back to zero and persists — shared by console.cpp's
+// `calreset` command and ble_relay.cpp's `control` "calibrate-reset" cmd.
+void resetIMUCalibration() {
+  imuHeelOffset = 0.0;
+  imuPitchOffset = 0.0;
+  saveIMUCalibration();
+}
+

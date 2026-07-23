@@ -79,6 +79,7 @@ xgsail-e1/
 ├── LICENSE                # Apache 2.0
 ├── docs/
 │   ├── firmware-architecture.md  # setup/loop, dual-core split, mesh, OCS, device protocol, BLE relay
+│   ├── ble-config.md             # BLE remote-configuration + calibration spec (E1-specific, not xgsail's protocol)
 │   ├── gnss-rtk.md               # LG290P config, RTCM3/MSM, RTK, PPK post-processing
 │   └── hardware.md               # Power/battery, display, GPS-triggered recording
 ├── firmware/
@@ -138,8 +139,12 @@ not a change to how the firmware is built or flashed.
   → ble_relay.cpp: the same claim/upload calls, relayed over a BLE GATT
     server by the owner's phone app when WiFi isn't available — a
     first-class path, not just a fallback, so it's always advertising
+  → the same GATT service also exposes an E1-specific remote-config
+    characteristic + IMU calibration commands (docs/ble-config.md) —
+    not part of xgsail's protocol, documented in this repo instead
 ```
 
 See `docs/firmware-architecture.md` for the mesh/OCS/device-protocol/BLE-relay
-design in more detail, and xgsail's `docs/device-protocol.md` for the claim
-flow and upload API this firmware talks to.
+design in more detail, `docs/ble-config.md` for the BLE remote-configuration
+spec, and xgsail's `docs/device-protocol.md` for the claim flow and upload
+API this firmware talks to.
