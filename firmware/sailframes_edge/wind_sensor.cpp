@@ -358,6 +358,19 @@ void pauseBLEForWiFi() {
   }
 }
 
+// Disconnects the current Calypso client (if connected) after a live
+// wind_mac change (ble_relay.cpp's device_config write handler) — the
+// existing checkWindConnection()/WIND_RECONNECT_MS reconnect cycle then
+// naturally targets the new MAC on its next attempt, same as any other
+// disconnect.
+void forceWindReconnect() {
+  if (pWindClient && pWindClient->isConnected()) {
+    Serial.println("[BLE] wind_mac changed — disconnecting current client");
+    pWindClient->disconnect();
+  }
+  wind.connected = false;
+}
+
 void checkWindConnection() {
   if (!config.wind_enabled) return;
 

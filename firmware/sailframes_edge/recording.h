@@ -24,4 +24,10 @@ extern unsigned long stopDelayMs;     // sustained duration before stop
 void updateRecordingState();
 const char* getRecStateStr();
 
+// Refreshes startSpeedKnots/stopSpeedKnots/startDelayMs/stopDelayMs from
+// config.start_speed_knots/etc. Called once at boot (sailframes_edge.ino's
+// setup()) and again by ble_relay.cpp's device_config write handler so a
+// live threshold change takes effect without a reboot.
+void applyRecordingThresholds();
+
 #endif  // SAILFRAMES_RECORDING_H

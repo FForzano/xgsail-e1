@@ -151,6 +151,12 @@ at boot regardless of WiFi state. See `docs/firmware-architecture.md` for
 how `ble_relay.cpp` maps pending SD files onto the protocol's
 `session_manifest`/`session_data` characteristics.
 
+The same BLE service also lets a companion app configure the device
+remotely — WiFi credentials, boat identity, recording thresholds, and
+more — plus trigger IMU calibration, all without pulling the SD card.
+This is firmware-specific, not part of xgsail's device protocol — see
+`docs/ble-config.md` for the full spec.
+
 ## Serial / telnet console
 
 USB-serial always accepts commands. The telnet listener (port 23) is off

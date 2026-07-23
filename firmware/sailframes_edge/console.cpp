@@ -342,9 +342,7 @@ void processCommand(String cmd, bool fromTelnet) {
 
   } else if (cmd == "calreset") {
     tprintln("Resetting IMU calibration to defaults...");
-    imuHeelOffset = 0.0;
-    imuPitchOffset = 0.0;
-    saveIMUCalibration();
+    resetIMUCalibration();
     tprintln("Calibration reset to zero");
 
   } else if (cmd == "cleanup" || cmd == "delup") {

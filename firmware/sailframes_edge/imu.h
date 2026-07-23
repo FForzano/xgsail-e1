@@ -41,5 +41,8 @@ void loadIMUCalibration();
 void saveIMUCalibration();
 // Zeroes heel/pitch at the current attitude and saves the new offsets.
 void calibrateIMU();
+// Clears both offsets back to zero and saves — used by console's
+// `calreset` and the BLE relay's `control` "calibrate-reset" command.
+void resetIMUCalibration();
 
 #endif  // SAILFRAMES_IMU_H

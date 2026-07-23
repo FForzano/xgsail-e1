@@ -406,10 +406,7 @@ void setup() {
   }
 
   // Apply recording thresholds from config
-  startSpeedKnots = config.start_speed_knots;
-  stopSpeedKnots = config.stop_speed_knots;
-  startDelayMs = config.start_delay_sec * 1000UL;
-  stopDelayMs = config.stop_delay_sec * 1000UL;
+  applyRecordingThresholds();
   Serial.printf("[REC] Thresholds: start>%.1f kt (%ds), stop<%.1f kt (%ds)\n",
     startSpeedKnots, config.start_delay_sec, stopSpeedKnots, config.stop_delay_sec);
 
