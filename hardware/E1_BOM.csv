@@ -1,0 +1,27 @@
+Category,Component,Description,Part Number,Qty Per Unit,Qty for 5 Units,Unit Price USD,Total USD,Source,Link/Notes
+Main,ESP32 DevKit V1,ELEGOO ESP32 DevKit V1 CP2102 USB-C,ELEGOO-ESP32,1,5,7.00,35.00,Amazon,3-pack available ~$20
+Main,GPS Module,Waveshare LG290P GNSS quad-band PPK-capable with antenna,LG290P,1,5,109.00,545.00,Waveshare,waveshare.com direct
+Main,IMU,GY-BNO08X BNO085 9DOF AHRS breakout,GY-BNO08X,1,5,15.00,75.00,Amazon/AliExpress,I2C address 0x4A
+Main,TFT Display,Hosyond 3.5 inch IPS TFT ST7796U 480x320 SPI,ST7796U-3.5,1,5,15.00,75.00,Amazon,White background sunlight readable
+Main,SD Card Module,MicroSD card breakout module SPI,SD-SPI,1,5,2.00,10.00,Amazon,6-pin SPI interface
+Main,SD Card,16GB microSD card,SD-16GB,1,5,5.00,25.00,Amazon,FAT32 formatted
+Main,Boost Charger,DWEII USB-C 5V 2A Boost Converter with LiPo charging,DWEII-5V2A,1,5,1.25,6.25,Amazon,10-pack available ~$12
+Main,Battery,906090 3.7V 6000mAh LiPo with JST PH 2.0mm connector,906090-6000,1,5,13.00,65.00,Amazon,Check polarity before connecting
+Main,PCB,E1 v1.0 PCB 60.5x91.5mm 2-layer,PCB-E1-V1,1,5,2.00,10.00,JLCPCB,Order 10 minimum ~$10 total
+Connectors,Pin Headers 40-pin,2.54mm male pin header strip,PH-40M,2,10,0.25,2.50,Amazon,Cut to size as needed
+Connectors,JST PH Socket,JST PH 2.0mm 2-pin through-hole socket,JST-PH-2,1,5,0.20,1.00,Amazon/DigiKey,For battery connector J10
+Connectors,Power Switch,SPDT slide switch SS12D10-G5 5mm pitch,SS12D10,1,5,0.30,1.50,Amazon,3-pin through-hole
+SMD,Resistor 100K,100K ohm 0805 SMD resistor,R-100K-0805,2,10,0.02,0.20,DigiKey/LCSC,Voltage divider R1 R2
+SMD,Resistor 4.7K,4.7K ohm 0805 SMD resistor,R-4K7-0805,2,10,0.02,0.20,DigiKey/LCSC,I2C pull-ups R3 R4
+Enclosure,Enclosure,YETLEBOX IP67 ABS 5.9x3.9x2.8 inch clear lid,YETLEBOX-IP67,1,5,15.00,75.00,Amazon,Clear lid for display visibility
+Enclosure,Standoffs M3,M3 nylon standoff assortment kit,M3-STANDOFF,1,1,10.00,10.00,Amazon,Shared kit for all units
+Enclosure,Screws M3,M3 stainless steel screw assortment,M3-SCREWS,1,1,8.00,8.00,Amazon,Shared kit for all units
+Optional,Pressure Sensor,Adafruit DPS310 I2C pressure sensor,DPS310,1,5,10.00,50.00,Adafruit,Future - barometric data
+Optional,Wind Sensor Board,Custom wind sensor MCU board,WIND-MCU,1,5,0.00,0.00,TBD,Future - UART1 expansion ready
+,,,,,,,,
+Summary,,,,,Total Main Components,,,837.25,
+Summary,,,,,Total Connectors,,,5.00,
+Summary,,,,,Total SMD,,,0.40,
+Summary,,,,,Total Enclosure,,,93.00,
+Summary,,,,,GRAND TOTAL,,,935.65,
+Summary,,,,,Cost Per Unit,,,187.13,

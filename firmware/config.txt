@@ -1,0 +1,33 @@
+# SailFrames E1 configuration — place on the SD card root as /config.txt.
+# Fields not listed here fall back to firmware defaults (config.h's Config
+# struct). GPS/IMU sample rates are firmware-baked (10 Hz), not configurable
+# here.
+
+# Boat identifier (shown on the TFT splash screen, used in filenames and
+# as the ESP-NOW mesh sender_id).
+boat_id=E1
+
+# Up to 5 WiFi networks, tried in order until one connects.
+wifi1_ssid=YourHomeNetwork
+wifi1_pass=changeme
+
+wifi2_ssid=YachtClubNetwork
+wifi2_pass=changeme
+
+# Calypso Mini wind sensor heading offset in degrees (mounting correction).
+wind_offset=0
+
+# Recording thresholds: session auto-starts once speed sustains above
+# start_speed_knots for start_delay_sec. It only stops on a clean
+# power-off or the `stoprec` console command (see firmware/README.md).
+start_speed_knots=1.5
+stop_speed_knots=0.5
+start_delay_sec=10
+stop_delay_sec=180
+
+# Fleet unit role: racing_boat, rc_signal, rc_pin, mark, committee_chase, spare.
+unit_role=racing_boat
+
+# RTK relative mode (docs/gnss-rtk.md). Off by default; enabling reconfigures
+# the GNSS module and is a physical bring-up act, not a remote-safe toggle.
+rtk_enabled=false
