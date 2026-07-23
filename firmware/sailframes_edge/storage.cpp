@@ -56,7 +56,21 @@ int getNextSessionNumber() {
   return n;
 }
 
-void startLogging() {
+// Writes `<dd>/<name>.txt` with `value`, if `value` is non-null/non-empty.
+static void writeSessionMarker(const char* dd, const char* name, const char* value) {
+  if (!value || value[0] == '\0') return;
+  char markerPath[80];
+  snprintf(markerPath, sizeof(markerPath), "%s/%s.txt", dd, name);
+  File marker = SD.open(markerPath, FILE_WRITE);
+  if (marker) {
+    marker.print(value);
+    marker.close();
+  } else {
+    Serial.printf("[LOG] Failed to write %s\n", markerPath);
+  }
+}
+
+void startLogging(const char* boatIdOverride, const char* activityIdOverride) {
   Serial.println("[LOG] Starting logging...");
 
   // Folder naming: GPS datetime preferred, session counter as fallback
@@ -97,6 +111,14 @@ void startLogging() {
   if (!SD.mkdir(dd)) {
     Serial.printf("[LOG] %s mkdir failed (may already exist)\n", dd);
   }
+
+  // Session-scoped boat/activity overrides (see startLogging()'s doc
+  // comment) — written once here, read back by sessionBoatId()/
+  // sessionActivityId() at upload time. No marker at all means "device's
+  // defaults", matching the backend falling back to device.owner_boat_id
+  // / a fresh solo activity when session-uploads omits the field.
+  writeSessionMarker(dd, "boat_id", boatIdOverride);
+  writeSessionMarker(dd, "activity_id", activityIdOverride);
 
   // Build file paths (RTCM3 raw capture retired in .09 — see archive doc)
   char np[64], ip[64], wp[64], pp[64];
@@ -193,6 +215,33 @@ String sessionStartedAtIso(const char* filepath) {
   char iso[24];
   if (formatGpsIso(iso, sizeof(iso))) return String(iso);
   return "";
+}
+
+// Shared by sessionBoatId()/sessionActivityId(): finds `filepath`'s
+// enclosing "/sf/<folder>/" directory and reads back "<folder>/<name>.txt"
+// if it exists, else "".
+static String readSessionMarker(const char* filepath, const char* name) {
+  String path = String(filepath);
+  int sfIdx = path.indexOf("/sf/");
+  if (sfIdx < 0) return "";
+  int start = sfIdx + 4;
+  int slash = path.indexOf('/', start);
+  if (slash < 0) return "";
+  String markerPath = path.substring(0, slash) + "/" + name + ".txt";
+  File marker = SD.open(markerPath.c_str(), FILE_READ);
+  if (!marker) return "";
+  String value = marker.readString();
+  marker.close();
+  value.trim();
+  return value;
+}
+
+String sessionBoatId(const char* filepath) {
+  return readSessionMarker(filepath, "boat_id");
+}
+
+String sessionActivityId(const char* filepath) {
+  return readSessionMarker(filepath, "activity_id");
 }
 
 void logIMU() {

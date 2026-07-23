@@ -151,14 +151,20 @@ NimBLE-Arduino runs both roles concurrently (`sailframes_edge.ino`'s
 for this relay).
 
 Bonding itself is off by default (`bleRelayInit()`'s
-`NimBLEDevice::setSecurityAuth(false, true, true)`) — a not-yet-bonded
+`NimBLEDevice::setSecurityAuth(false, false, true)`) — a not-yet-bonded
 phone can still connect, but a write to `provisioning` or `device_config`
 (the two characteristics that can carry a secret: `device_api_key`, WiFi
 password) is rejected unless this connection is already a recognized
 bond, or `button.cpp`'s long-press handler has opened a timed pairing
-window (`bleOpenBondWindow()`, `config.h`'s `BLE_BOND_WINDOW_MS`) — see
-`docs/hardware.md` for the button and `docs/ble-config.md` for the full
-spec. `bleRelayTick()` closes the window again once it expires.
+window (`bleOpenBondWindow()`, `config.h`'s `BLE_BOND_WINDOW_MS`, flips
+bonding to `setSecurityAuth(true, false, true)` for the window's
+duration) — see `docs/hardware.md` for the button and
+`docs/ble-config.md` for the full spec. `bleRelayTick()` flips bonding
+back off once the window expires. MITM stays off throughout (`Just
+Works` pairing) since this device never calls `setSecurityIOCap()` — it
+has no display/buttons to satisfy MITM's passkey/confirmation exchange,
+and the pairing window (physical presence at the boat) is the actual
+protection against an unwanted bond, not MITM.
 
 Each pending SD file (same file-driven pending list `upload.cpp` walks) is
 one `session_manifest` entry, keyed by its SD path as the manifest's
@@ -171,10 +177,9 @@ loop, sequence-indexed 4KB-ish chunks sized to the connection's actual
 negotiated MTU). `control`'s `ack-uploaded` reuses `upload.cpp`'s own
 `.uploaded` marker (`markUploaded()`) — a file relayed over BLE is never
 re-offered by either upload path afterward. `provisioning` (the only
-characteristic that can carry `device_api_key`) requires a bonded,
-encrypted link (`NimBLEDevice::setSecurityAuth(true, true, true)`); so
-does `device_config`'s write, for the same reason (it can carry a WiFi
-password) — see below.
+characteristic that can carry `device_api_key`) and `device_config`'s
+write are the two characteristics gated by the pairing window described
+above.
 
 The same service also carries E1-specific extensions beyond
 `docs/device-protocol.md` §8: a `device_config` characteristic for live

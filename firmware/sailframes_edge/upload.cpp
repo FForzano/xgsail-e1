@@ -323,6 +323,14 @@ bool uploadFile(const char* filepath) {
   openBody["sequence_number"] = 0;
   openBody["is_final"] = true;
   openBody["filename"] = filename;
+  // Per-session overrides picked from the app at recording start (see
+  // storage.h's startLogging()) — omitted entirely when absent, so the
+  // backend applies its own defaults (device.owner_boat_id / a fresh
+  // solo activity) exactly as if this device had no opinion.
+  String boatId = sessionBoatId(filepath);
+  if (boatId.length() > 0) openBody["boat_id"] = boatId;
+  String activityId = sessionActivityId(filepath);
+  if (activityId.length() > 0) openBody["activity_id"] = activityId;
   String openBodyStr;
   serializeJson(openBody, openBodyStr);
 

@@ -15,7 +15,7 @@ void applyRecordingThresholds() {
   startSpeedKnots = config.start_speed_knots;
 }
 
-bool startRecording() {
+bool startRecording(const char* boatId, const char* activityId) {
   if (recState == REC_RECORDING) return false;
   if (!sdOK) {
     Serial.println("[REC] SD card not available, can't start");
@@ -26,7 +26,7 @@ bool startRecording() {
     return false;
   }
   sessionCount++;
-  startLogging();
+  startLogging(boatId, activityId);
   xSemaphoreGive(sdMutex);
   recState = REC_RECORDING;
   Serial.printf("[REC] Recording STARTED — session %d\n", sessionCount);

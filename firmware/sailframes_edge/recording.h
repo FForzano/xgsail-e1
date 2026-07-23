@@ -17,16 +17,20 @@ extern int sessionCount;                // increments each recording session
 extern float startSpeedKnots;
 
 // Starts a new session (SD-mutex guarded) if not already recording.
+// `boatId`/`activityId` are the optional per-session overrides an app can
+// pick when it triggers the start over BLE (see storage.h's
+// startLogging()) — both default to null ("use the device's normal
+// boat, a fresh solo activity") for the button/console entry points.
 // Returns true if a session was actually started.
-bool startRecording();
+bool startRecording(const char* boatId = nullptr, const char* activityId = nullptr);
 
 // Flushes and closes the current session's files if recording. Returns
 // true if a session was actually stopped.
 bool stopRecording();
 
-// Toggles start/stop off the current state — the single entry point
-// button.cpp's short-press handler and the BLE control characteristic's
-// start-rec/stop-rec commands both call.
+// Toggles start/stop off the current state — button.cpp's short-press
+// handler calls this with no overrides (physical button, no app in the
+// loop to supply them).
 void toggleRecording();
 
 const char* getRecStateStr();

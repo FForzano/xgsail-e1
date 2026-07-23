@@ -76,7 +76,14 @@ void bleOpenBondWindow() {
   // bleRelayTick() flips it back off once the window closes; an existing
   // stored bond keeps reconnecting fine regardless of this flag (bondable
   // mode only governs *new* pairing, not re-establishing an existing bond).
-  NimBLEDevice::setSecurityAuth(true, true, true);
+  // MITM off ("Just Works" pairing): this device never calls
+  // setSecurityIOCap(), so it stays NimBLE's default NoInputNoOutput —
+  // requesting MITM protection with no IO capability to satisfy it (no
+  // display for a passkey, no button-pair confirmation) can make phones
+  // fail pairing outright rather than downgrade gracefully. That's fine
+  // here: the real protection against an unwanted first-time bond is the
+  // pairing window itself (physical presence at the boat), not MITM.
+  NimBLEDevice::setSecurityAuth(true, false, true);
   Serial.printf("[BLE] Pairing window open for %lus\n", BLE_BOND_WINDOW_MS / 1000UL);
 }
 
@@ -116,6 +123,15 @@ static void collectPendingFiles(const char* dirname, JsonArray& out) {
         entry["byte_size"] = (uint32_t)size;
         entry["started_at"] = sessionStartedAtIso(filepath);
         entry["ended_at"] = nullptr;
+        // E1 extension beyond §8.2's manifest shape: the boat/activity the
+        // operator picked at recording start (storage.h), if any — so an
+        // app relaying this session's session-uploads call itself (per
+        // §8.2, the phone does that, not the device) knows what the
+        // device intended instead of silently defaulting.
+        String boatId = sessionBoatId(filepath);
+        if (boatId.length() > 0) entry["boat_id"] = boatId;
+        String activityId = sessionActivityId(filepath);
+        if (activityId.length() > 0) entry["activity_id"] = activityId;
       }
     }
     file = root.openNextFile();
@@ -281,8 +297,14 @@ class ControlCallbacks : public NimBLECharacteristicCallbacks {
     } else if (strcmp(cmd, "start-rec") == 0) {
       // E1-specific extension alongside calibrate/calibrate-reset: lets
       // the phone app start a session over BLE, same entry point as the
-      // physical button's short press and the console's `rec` command.
-      status["ok"] = startRecording();
+      // physical button's short press and the console's `rec` command —
+      // optionally naming the XGSail boat/activity to file this session
+      // under (recording.h's startRecording(); "" or absent = device
+      // defaults). Neither is validated here — an unknown UUID just
+      // fails server-side when this session eventually uploads.
+      const char* boatId = doc["boat_id"] | "";
+      const char* activityId = doc["activity_id"] | "";
+      status["ok"] = startRecording(boatId, activityId);
       status["logging"] = logging;
       haveStatus = true;
     } else if (strcmp(cmd, "stop-rec") == 0) {
@@ -552,7 +574,7 @@ void bleRelayInit() {
   // the operator's long-press opens the pairing window (bleOpenBondWindow()
   // flips this to bonding=true for the window's duration). An already-
   // bonded phone's reconnect is unaffected by this flag either way.
-  NimBLEDevice::setSecurityAuth(false, true, true);  // MITM + secure connections, bonding gated by the pairing window
+  NimBLEDevice::setSecurityAuth(false, false, true);  // secure connections; bonding + MITM gated by the pairing window (see bleOpenBondWindow())
 
   s_pServer = NimBLEDevice::createServer();
   s_pServer->setCallbacks(new RelayServerCallbacks());
@@ -614,7 +636,7 @@ void bleRelayInit() {
 void bleRelayTick() {
   if (s_bondWindowUntil != 0 && (long)(millis() - s_bondWindowUntil) >= 0) {
     s_bondWindowUntil = 0;
-    NimBLEDevice::setSecurityAuth(false, true, true);
+    NimBLEDevice::setSecurityAuth(false, false, true);
     Serial.println("[BLE] Pairing window closed");
   }
 

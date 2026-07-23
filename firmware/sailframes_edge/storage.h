@@ -22,7 +22,25 @@ extern unsigned long totalBytes;
 int getNextSessionNumber();
 // Opens a new session's nav/imu/wind/pressure CSVs under /sf/<folder>/ and
 // writes their headers. Sets `logging = true` and `logStart` on success.
-void startLogging();
+// Every session becomes its own xgsail session server-side regardless
+// (ingestion.find_or_create_session); the two optional overrides below
+// just say more about it, both picked from the app when starting the
+// recording (recording.h) — omit either/both for the device's defaults:
+//   sessionBoatId     — the XGSail boat (a backend UUID, unrelated to
+//                        config.h's `config.boat_id` mesh-identity label
+//                        — see recording.h) to file this session under
+//                        instead of the device's own boat.
+//   sessionActivityId — an existing XGSail activity (race, training
+//                        session, ...) to attach this session to,
+//                        instead of getting its own private "solo"
+//                        activity — see docs/device-protocol.md §4.4's
+//                        session-uploads activity_id.
+// Both are written to the session folder's boat_id.txt/activity_id.txt
+// markers so upload.cpp's uploadFile() can include them on the
+// session-uploads POST — the server already defaults each to
+// device.owner_boat_id / a fresh solo activity when the upload omits
+// them, so nothing else needs to happen for the default case.
+void startLogging(const char* boatIdOverride = nullptr, const char* activityIdOverride = nullptr);
 void logNav();
 void logIMU();
 
@@ -38,6 +56,13 @@ void listDirOutput(const char* dirname, int depth, bool toTelnet);
 // relay manifest) — both need the same session timestamp for the same
 // files.
 String sessionStartedAtIso(const char* filepath);
+
+// Reads back a file's session's boat_id.txt/activity_id.txt markers (see
+// startLogging()) — "" if the session used the device's default (no
+// marker written). Shared by upload.cpp (WiFi path's session-uploads
+// POST) and ble_relay.cpp (BLE relay manifest).
+String sessionBoatId(const char* filepath);
+String sessionActivityId(const char* filepath);
 
 // Converts esp_reset_reason_t to a short label for /boot.log readability.
 const char* resetReasonStr(esp_reset_reason_t r);

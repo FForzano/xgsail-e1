@@ -46,6 +46,9 @@ the window over BLE itself: physical access to the boat is the point.
 { "cmd": "start-rec" }
 ```
 ```json
+{ "cmd": "start-rec", "boat_id": "<uuid>", "activity_id": "<uuid>" }
+```
+```json
 { "cmd": "stop-rec" }
 ```
 
@@ -53,7 +56,8 @@ Same entry point as the physical button's short press and the console's
 `rec`/`stoprec` commands (`recording.h`'s `startRecording()`/
 `stopRecording()`) — recording is button/app-triggered only, there is no
 GPS-speed auto-start. Neither command requires bonding (same as
-`calibrate`/`calibrate-reset` below — nothing here is a secret). Notifies
+`calibrate`/`calibrate-reset` below — nothing here is a secret; `boat_id`/
+`activity_id` are backend record identifiers, not credentials). Notifies
 back on `control`:
 
 ```json
@@ -62,6 +66,34 @@ back on `control`:
 
 `ok` is `false` if the command was a no-op (already recording / already
 stopped, or no SD card for `start-rec`).
+
+**`boat_id`/`activity_id` are both optional**, and independent of each
+other — this is "start a session, optionally naming the boat and/or
+activity it belongs to", not "pick a boat":
+
+- Omit both (or send bare `{"cmd":"start-rec"}`) and the session gets
+  the device's own boat (`device.owner_boat_id`, set at claim time) and
+  a fresh private "solo" activity — today's only behavior, unchanged.
+- `activity_id` — an existing XGSail activity (a race, a training
+  session, ...) to fold this session into, instead of a new solo one.
+  This is the field worth exposing prominently in an app's "start
+  recording" flow (docs/device-protocol.md §4.4's `session-uploads`
+  `activity_id` — same field, same semantics).
+- `boat_id` — overrides which XGSail boat the session is filed under
+  (**not** the same thing as `device_config`'s `boat_id` field, which is
+  only the ESP-NOW mesh identity / log-filename prefix — see
+  `docs/firmware-architecture.md`'s note on `boatIdHash()`). Only
+  useful for a device that sails on more than one boat; most apps can
+  leave this out entirely.
+
+Neither value is validated by the firmware — an unrecognized UUID simply
+fails the `session-uploads` call server-side once this session's files
+try to upload. The device writes whichever were given to
+`boat_id.txt`/`activity_id.txt` markers in the session's SD folder
+(`storage.cpp`'s `startLogging()`) and echoes them back in the BLE
+relay's `session_manifest` entries too (an addition beyond
+`docs/device-protocol.md` §8.2's manifest shape) so an app relaying the
+`session-uploads` call itself later knows what was originally intended.
 
 ## `device_config` characteristic
 
@@ -80,6 +112,16 @@ read response** — it's write-only, always sent back as `""` regardless
 of connection state. Set a password, but don't expect to read it back.
 
 ### Read: current configuration
+
+**`boat_id` here is not an XGSail boat.** It's the mesh-identity/
+log-filename-prefix/splash-screen label (≤15 chars, e.g. `"E1"`) —
+`config.txt`'s `boat_id`, hashed into the ESP-NOW sender id
+(`docs/firmware-architecture.md`). The XGSail boat a session uploads
+under is `device.owner_boat_id` (set once, at claim time, server-side —
+not writable here) unless overridden per-session via `control`'s
+`start-rec` `boat_id` above. An app UI editing this field should label
+it something like "device name on the mesh", not "boat", to avoid
+implying it changes which XGSail boat the device's data belongs to.
 
 ```json
 {
