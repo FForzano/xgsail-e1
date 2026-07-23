@@ -5,12 +5,13 @@
 // Runs concurrently with the existing NimBLE central role used for the
 // Calypso wind sensor (wind_sensor.cpp).
 //
-// Also carries an E1-specific extension beyond xgsail's protocol, on the
+// Also carries E1-specific extensions beyond xgsail's protocol, on the
 // same service: a `device_config` characteristic for live remote
-// configuration (WiFi creds, boat_id, thresholds, ...), and two extra
-// `control` commands for IMU calibration. Not part of
-// docs/device-protocol.md (that's the ingestion contract, owned by
-// xgsail) — see docs/ble-config.md for the full spec.
+// configuration (WiFi creds, boat_id, thresholds, ...), two extra
+// `control` commands for IMU calibration, and a read-only `status`
+// characteristic for live runtime state (battery, WiFi, GPS, sensors,
+// recording). Not part of docs/device-protocol.md (that's the ingestion
+// contract, owned by xgsail) — see docs/ble-config.md for the full spec.
 #ifndef SAILFRAMES_BLE_RELAY_H
 #define SAILFRAMES_BLE_RELAY_H
 

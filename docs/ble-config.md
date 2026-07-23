@@ -169,6 +169,53 @@ Both notify a status back on `control`:
 
 ---
 
+## `status` characteristic (read-only)
+
+Live runtime state — distinct from `device_config` (how the device is
+*set up*) and `identity` (its stable identity). Read on demand; there is
+no periodic push. Same fields the console's `status` command already
+prints, just as JSON instead of a serial dump — nothing here is
+computed specially for BLE.
+
+| | |
+|---|---|
+| UUID | `bfef7865-f3f7-486c-93fe-bbae78cfdc43` |
+| Properties | `read` only — no write, no notify |
+
+No bonding required: nothing in the payload is a secret (your own
+boat's GPS position and WiFi SSID, not a password).
+
+```json
+{
+  "claimed": true,
+  "firmware_version": "2026.06.29.02",
+  "uptime_s": 5423,
+  "heap_free": 142300,
+  "battery": { "pct": 78, "v": 3.91, "critical": false },
+  "sd_ok": true,
+  "wifi": { "connected": true, "ssid": "YachtClub", "ip": "192.168.1.42" },
+  "sensors": { "imu": true, "pressure": true, "wind": true },
+  "gps": { "fix": true, "satellites": 9, "hdop": 1.2, "lat": 42.36012, "lon": -71.05821, "speed_kts": 5.2, "course": 210 },
+  "wind": { "connected": true, "speed_kts": 12.1, "angle_deg": 45, "battery": 88 },
+  "recording": { "logging": true, "session_count": 3, "pending_uploads": 1 }
+}
+```
+
+Field notes:
+- `wifi.ssid`/`wifi.ip` are only present when `wifi.connected` is `true`.
+- `sensors` reports **presence**, not live readings — whether the IMU/
+  pressure chip were detected at boot, and whether a wind sensor is
+  currently paired (`config.wind_enabled`). Wind's live reading is the
+  separate `wind` object below.
+- `gps.fix` is `false` and the rest of `gps` is stale/zeroed until the
+  GNSS module gets its first fix.
+- `wind.speed_kts`/`wind.angle_deg`/`wind.battery` are only present when
+  `wind.connected` is `true` (no wind sensor paired, or not currently
+  connected, means just `{"connected": false}`).
+- `recording.pending_uploads` counts sessions with files still to
+  upload, over WiFi or BLE relay — same count the `status` console
+  command and the device's own display show.
+
 ## Concurrency note (for firmware maintainers, not app authors)
 
 Every SD-card access reachable from a BLE callback — `device_config`'s
@@ -179,4 +226,6 @@ SD card. BLE callbacks run on the NimBLE host's own FreeRTOS task, a
 third execution context distinct from Core 1's sensor/display loop and
 Core 0's upload task; without this, a BLE-triggered write could race
 against either. See `ble_relay.cpp`'s `BLE_SD_MUTEX_TIMEOUT` and its
-usages for the exact pattern.
+usages for the exact pattern. `status` is the one exception — it only
+reads already-maintained in-memory globals, never the SD card, so its
+`onRead` doesn't take `sdMutex`.

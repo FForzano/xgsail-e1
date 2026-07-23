@@ -13,6 +13,8 @@
 #include "mesh.h"
 #include "imu.h"
 #include "gnss.h"
+#include "battery.h"
+#include "pressure.h"
 #include "wind_sensor.h"  // bleInitialized — shared with the wind-sensor central role
 #include "shared_state.h"  // sdMutex
 #include <NimBLEDevice.h>
@@ -25,9 +27,10 @@ static const char* PROVISIONING_UUID  = "db2c2e63-9e13-4fa9-867c-0b579ce2ae57";
 static const char* MANIFEST_UUID      = "ed9efdc8-70d4-4ce5-a0a3-9fa6d88b9b9e";
 static const char* SESSION_DATA_UUID  = "728d2815-0409-49ce-ad73-ecca6fc6d981";
 static const char* CONTROL_UUID       = "ec88dd3e-2562-420c-aebe-30a4ae40bdf9";
-// E1-specific extension (not in xgsail's docs/device-protocol.md) — see
+// E1-specific extensions (not in xgsail's docs/device-protocol.md) — see
 // docs/ble-config.md.
 static const char* DEVICE_CONFIG_UUID = "042dfd7c-88f4-4ae8-af9a-eb1d7be7a3c6";
+static const char* STATUS_UUID        = "bfef7865-f3f7-486c-93fe-bbae78cfdc43";
 
 // Short timeout for sdMutex acquisition from BLE callbacks. These run on
 // the NimBLE host's own FreeRTOS task — a third execution context beyond
@@ -394,6 +397,71 @@ class DeviceConfigCallbacks : public NimBLECharacteristicCallbacks {
   }
 };
 
+// status — E1-specific extension, read-only, no bonding required (nothing
+// here is a secret: own-boat GPS position and WiFi SSID, not a password).
+// Pure snapshot of already-maintained in-memory state, same fields the
+// console's `status` command prints (console.cpp) — no SD access, so no
+// sdMutex needed, unlike device_config/session_manifest. See
+// docs/ble-config.md for the full field reference.
+static String buildStatusJson() {
+  JsonDocument doc;
+  doc["claimed"] = isClaimed();
+  doc["firmware_version"] = FW_VERSION;
+  doc["uptime_s"] = (uint32_t)(millis() / 1000UL);
+  doc["heap_free"] = (uint32_t)ESP.getFreeHeap();
+
+  JsonObject batt = doc["battery"].to<JsonObject>();
+  batt["pct"] = battery.percent;
+  batt["v"] = battery.voltage;
+  batt["critical"] = battery.critical;
+
+  doc["sd_ok"] = sdOK;
+
+  JsonObject wifiObj = doc["wifi"].to<JsonObject>();
+  wifiObj["connected"] = wifiConnected;
+  if (wifiConnected) {
+    wifiObj["ssid"] = connectedSSID;
+    wifiObj["ip"] = WiFi.localIP().toString();
+  }
+
+  JsonObject sensors = doc["sensors"].to<JsonObject>();
+  sensors["imu"] = imuOK;
+  sensors["pressure"] = presOK;
+  sensors["wind"] = config.wind_enabled;
+
+  JsonObject gpsObj = doc["gps"].to<JsonObject>();
+  gpsObj["fix"] = gps.valid;
+  gpsObj["satellites"] = gps.satellites;
+  gpsObj["hdop"] = gps.hdop;
+  gpsObj["lat"] = gps.lat;
+  gpsObj["lon"] = gps.lon;
+  gpsObj["speed_kts"] = gps.speed_kts;
+  gpsObj["course"] = gps.course;
+
+  JsonObject windObj = doc["wind"].to<JsonObject>();
+  windObj["connected"] = wind.connected;
+  if (wind.connected) {
+    windObj["speed_kts"] = wind.speed_kts;
+    windObj["angle_deg"] = wind.angle_deg;
+    windObj["battery"] = wind.battery;
+  }
+
+  JsonObject rec = doc["recording"].to<JsonObject>();
+  rec["logging"] = logging;
+  rec["session_count"] = sessionCount;
+  rec["pending_uploads"] = pendingUploads;
+
+  String out;
+  serializeJson(doc, out);
+  return out;
+}
+
+class StatusCallbacks : public NimBLECharacteristicCallbacks {
+  void onRead(NimBLECharacteristic* pChar, NimBLEConnInfo& connInfo) override {
+    pChar->setValue(buildStatusJson());
+  }
+};
+
 class RelayServerCallbacks : public NimBLEServerCallbacks {
   void onConnect(NimBLEServer* pServer, NimBLEConnInfo& connInfo) override {
     s_connHandle = connInfo.getConnHandle();
@@ -469,6 +537,12 @@ void bleRelayInit() {
       DEVICE_CONFIG_UUID,
       NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::WRITE_ENC | NIMBLE_PROPERTY::NOTIFY);
   pDeviceConfigChar->setCallbacks(new DeviceConfigCallbacks());
+
+  // status — E1-specific extension (docs/ble-config.md), read-only,
+  // on-demand (no notify — the app reads when it wants a snapshot).
+  NimBLECharacteristic* pStatusChar =
+      pService->createCharacteristic(STATUS_UUID, NIMBLE_PROPERTY::READ);
+  pStatusChar->setCallbacks(new StatusCallbacks());
 
   pService->start();
 
