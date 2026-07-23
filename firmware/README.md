@@ -18,6 +18,7 @@ and a serial/telnet console.
 | Storage | MicroSD, standalone module | SPI (HSPI, separate bus from the display) |
 | Wind sensor | Calypso Mini (BLE) | BLE (NimBLE) |
 | Power | DWEII USB-C 5V boost converter + LiPo | 100K/100K divider on GPIO34 |
+| Recording/pairing button | Momentary pushbutton, active-low | GPIO32, internal pull-up |
 
 ### Pin assignments (see `sailframes_edge/config.h`)
 
@@ -36,6 +37,7 @@ and a serial/telnet console.
 | GPIO35 | SPI MISO (HSPI) | SD card |
 | GPIO13 | SPI MOSI (HSPI) | SD card |
 | GPIO34 | ADC (battery divider) | LiPo voltage sense |
+| GPIO32 | Digital in, pull-up (active-low) | Recording/pairing pushbutton |
 
 The display and SD card are deliberately on separate SPI buses (VSPI vs.
 HSPI) — sharing one bus caused visible flicker during SD writes.
@@ -127,10 +129,11 @@ is available, `session_NNN` otherwise):
 <boat_id>_<date>_<time>_pres.csv   # 0.1 Hz: pressure, temperature, min/max (gust window)
 ```
 
-A recording session auto-starts once boat speed sustains above
-`start_speed_knots` (config.txt) and only stops on a clean power-off or
-the `stoprec` command (see `docs/firmware-architecture.md` for why
-speed-triggered *stop* was removed).
+A recording session starts and stops manually — a short press of the
+device's button, the console's `rec`/`stoprec` commands, or the BLE
+relay's `start-rec`/`stop-rec` (`docs/ble-config.md`) — or ends on a
+clean power-off. There is no GPS-speed auto-start/stop (see
+`docs/hardware.md`'s "Button-triggered recording").
 
 ## Claiming the device
 
@@ -176,9 +179,14 @@ how `ble_relay.cpp` maps pending SD files onto the protocol's
 
 The same BLE service also lets a companion app configure the device
 remotely — WiFi credentials, boat identity, recording thresholds, and
-more — plus trigger IMU calibration, all without pulling the SD card.
-This is firmware-specific, not part of xgsail's device protocol — see
-`docs/ble-config.md` for the full spec.
+more — trigger IMU calibration, and start/stop a recording session, all
+without pulling the SD card. This is firmware-specific, not part of
+xgsail's device protocol — see `docs/ble-config.md` for the full spec.
+
+A phone pairing for the first time (to claim the device or write any of
+the above) needs the device's button held for the long-press pairing
+window — see `docs/hardware.md`'s "Recording/pairing button" and
+`docs/ble-config.md`'s "Pairing window" for why and how.
 
 ## Serial / telnet console
 

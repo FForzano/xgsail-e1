@@ -514,9 +514,7 @@ void updateDisplayD2() {
     const char* recStr;
     switch (recState) {
       case REC_IDLE: recStr = gps.valid ? "READY" : "NO GPS"; break;
-      case REC_ARMED: recStr = "ARM"; break;
       case REC_RECORDING: recStr = "REC"; break;
-      case REC_STOPPING: recStr = "STOP"; break;
       default: recStr = "---"; break;
     }
     tft.setTextColor(TFT_WHITE, TFT_BLACK);
@@ -779,9 +777,7 @@ void updateDisplayD3() {
     const char* recStr;
     switch (recState) {
       case REC_IDLE: recStr = gps.valid ? "READY" : "NO GPS"; break;
-      case REC_ARMED: recStr = "ARMING"; break;
       case REC_RECORDING: recStr = "REC"; break;
-      case REC_STOPPING: recStr = "STOP"; break;
       default: recStr = ""; break;
     }
     tft.drawString(recStr, 5, 7, 2);

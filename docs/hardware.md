@@ -48,19 +48,38 @@ switch flip mid-race doesn't corrupt the CSV in progress.
   loop — recovery is the operator flipping the hardware switch, not an
   automatic power-off, since there's no software path to cut power.
 
-### GPS-speed-triggered recording
+### Button-triggered recording
 
-No manual start/stop for the common case. `updateRecordingState()`
-(`recording.cpp`) auto-starts a session once GPS speed sustains above
-`start_speed_knots` (default 1.5 kt) for `start_delay_sec` (default 10 s)
-— well above dock/mooring GPS noise, with the delay guarding against a
-single noisy fix. It does **not** auto-stop on low speed: sailors
-routinely sit near-stationary before a start or between races in a
-series, and an earlier speed-triggered stop was removed because it
-chopped sessions mid-event. A session only ends on a clean power-off (the
-slide switch) or the `stoprec` console command — see
+Recording start/stop is manual, not GPS-speed-triggered: a short press of
+the physical button (`button.cpp`, `BUTTON_PIN` below) toggles
+`recording.h`'s `startRecording()`/`stopRecording()` — same entry point
+as the console's `rec`/`stoprec` commands and the BLE relay's `control`
+`start-rec`/`stop-rec` commands (`docs/ble-config.md`). There is no
+auto-start and no auto-stop on speed; a session runs until the operator
+explicitly stops it (button, console, or app) or powers off (the slide
+switch, which flushes and closes any open session files first — see
+"Power" above). `config.start_speed_knots` survives only as the
+"boat is moving" heuristic `upload.cpp` uses to abort an in-progress
+upload cycle, not as a recording trigger — see
 `docs/firmware-architecture.md` for the OCS/mesh context this recording
 state feeds into, and `firmware/README.md` for the resulting log files.
+
+### Recording/pairing button
+
+A momentary pushbutton, active-low: one leg to `BUTTON_PIN` (GPIO32),
+the other to GND, using the ESP32's internal pull-up (no external
+resistor). `button.cpp` debounces it (`BUTTON_DEBOUNCE_MS`, 30 ms) and
+dispatches two gestures:
+
+- **Short press** — toggles recording (above).
+- **Long press** (held past `BUTTON_LONG_PRESS_MS`, 2 s) — opens a
+  60-second BLE pairing window (`BLE_BOND_WINDOW_MS`,
+  `ble_relay.cpp`'s `bleOpenBondWindow()`) during which a new phone can
+  complete its first bond; outside the window, a not-yet-bonded
+  connection can't write the characteristics that carry secrets
+  (`device_api_key`, WiFi password). See `docs/ble-config.md` for the
+  full pairing-window spec. This requires physical presence at the boat
+  to pair a new phone, rather than anyone in BLE range being able to.
 
 ## Display
 

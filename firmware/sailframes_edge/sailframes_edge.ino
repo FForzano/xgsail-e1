@@ -74,6 +74,7 @@
 #include "pressure.h"
 #include "battery.h"
 #include "recording.h"
+#include "button.h"
 #include "ocs.h"
 #include "display.h"
 #include "storage.h"
@@ -407,13 +408,12 @@ void setup() {
 
   // Apply recording thresholds from config
   applyRecordingThresholds();
-  Serial.printf("[REC] Thresholds: start>%.1f kt (%ds), stop<%.1f kt (%ds)\n",
-    startSpeedKnots, config.start_delay_sec, stopSpeedKnots, config.stop_delay_sec);
 
-  // DON'T start logging immediately - GPS speed state machine controls this
-  // Recording will auto-start when GPS speed > threshold
+  // Recording is button-triggered (button.h) — short press toggles
+  // start/stop, long press opens the BLE pairing window. No auto-start.
   recState = REC_IDLE;
-  Serial.println("[REC] Auto-recording enabled - waiting for GPS speed trigger");
+  buttonInit();
+  Serial.println("[REC] Button-triggered recording ready — short press to start/stop");
 
   // Watchdog timeout: 300s (5 min). HTTP PUTs of 600KB+ RTCM3 files at
   // marginal signal can stretch past 120s in a single sendRequest() —
@@ -608,8 +608,8 @@ void loop() {
     }
   }
 
-  g_loopSection = "rec-state";
-  updateRecordingState();
+  g_loopSection = "button";
+  buttonTick();
 
   // Sensor reads are I2C on Core 1, upload runs on Core 0 — no conflict.
   // SD logging (logIMU/logPressure) is guarded by `logging` which is always

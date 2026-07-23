@@ -53,6 +53,14 @@
 // 100K/100K voltage divider from LiPo B+ to GPIO34
 #define BATT_VOLTAGE_PIN  34   // ADC pin for voltage divider (input-only, no pullup)
 
+// Recording/pairing momentary pushbutton — active-low, other leg to GND,
+// internal pull-up (no external resistor needed). See button.h/.cpp and
+// docs/hardware.md.
+#define BUTTON_PIN            32
+#define BUTTON_DEBOUNCE_MS    30     // raw-level settle time before accepting an edge
+#define BUTTON_LONG_PRESS_MS  2000   // held past this = long press (opens BLE pairing window)
+#define BLE_BOND_WINDOW_MS    60000  // how long a long-press keeps new-phone bonding open
+
 // Power control: Hardware switch on boost converter.
 // No software deep sleep - hardware switch cuts all power when OFF.
 
@@ -133,7 +141,11 @@ struct Config {
   char wind_mac[20] = "";  // Calypso Mini MAC (loaded from /wind_mac.txt if present)
   bool wind_enabled = false;  // Auto-enabled if /wind_mac.txt exists on SD
   int wind_offset = 0;  // Heading offset in degrees (added to raw AWA for sensor mounting correction)
-  // Recording thresholds
+  // Recording is button-triggered (button.h/recording.h's toggleRecording()),
+  // not GPS-speed-triggered. start_speed_knots survives only as the "boat is
+  // moving" heuristic upload.cpp uses to abort an in-progress upload cycle;
+  // stop_speed_knots/start_delay_sec/stop_delay_sec are unused, kept for
+  // on-disk config.txt compatibility with older cards.
   float start_speed_knots = 1.5;
   float stop_speed_knots = 0.5;
   int start_delay_sec = 10;

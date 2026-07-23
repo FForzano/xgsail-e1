@@ -26,4 +26,12 @@ void bleRelayInit();
 // chunk notifications) — call every loop() iteration. Non-blocking.
 void bleRelayTick();
 
+// Opens the pairing window: for BLE_BOND_WINDOW_MS (config.h), a
+// not-yet-bonded phone is allowed to write `provisioning`/`device_config`
+// (the two characteristics that can carry secrets — device_api_key, WiFi
+// password). Outside the window, only a connection already recognized as
+// bonded from an earlier pairing may write them. Called by button.cpp's
+// long-press handler — see docs/ble-config.md.
+void bleOpenBondWindow();
+
 #endif  // SAILFRAMES_BLE_RELAY_H

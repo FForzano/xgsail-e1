@@ -681,37 +681,21 @@ void processCommand(String cmd, bool fromTelnet) {
     }
 
   } else if (cmd == "rec" || cmd == "startrec") {
-    // Manual start recording
+    // Manual start recording — same entry point the button/BLE use.
     if (logging) {
       tprintln("Already recording");
-    } else if (!sdOK) {
-      tprintln("SD card not available");
-    } else {
-      tprintln("Starting recording manually...");
-      sessionCount++;
-      if (xSemaphoreTake(sdMutex, pdMS_TO_TICKS(1000))) {
-        startLogging();
-        xSemaphoreGive(sdMutex);
-      }
-      recState = REC_RECORDING;
+    } else if (startRecording()) {
       tprintf("Recording session %d started\n", sessionCount);
+    } else {
+      tprintln("Could not start recording (no SD card, or SD busy)");
     }
 
   } else if (cmd == "stoprec") {
-    // Manual stop recording
+    // Manual stop recording — same entry point the button/BLE use.
     if (!logging) {
       tprintln("Not recording");
     } else {
-      tprintln("Stopping recording...");
-      if (xSemaphoreTake(sdMutex, pdMS_TO_TICKS(1000))) {
-        navFile.flush(); navFile.close();
-        imuFile.flush(); imuFile.close();
-        if (windFile) { windFile.flush(); windFile.close(); }
-        if (presFile) { presFile.flush(); presFile.close(); }
-        xSemaphoreGive(sdMutex);
-      }
-      logging = false;
-      recState = REC_IDLE;
+      stopRecording();
       tprintf("Recording session %d stopped\n", sessionCount);
     }
 
@@ -722,8 +706,8 @@ void processCommand(String cmd, bool fromTelnet) {
     tprintf("Logging: %s\n", logging ? "YES" : "NO");
     tprintf("Session: %d\n", sessionCount);
     tprintf("Speed: %.1f kt\n", gps.speed_kts);
-    tprintf("Start threshold: >%.1f kt for %d sec\n", config.start_speed_knots, config.start_delay_sec);
-    tprintf("Stop threshold: <%.1f kt for %d sec\n", config.stop_speed_knots, config.stop_delay_sec);
+    tprintln("Start/stop: button, console rec/stoprec, or BLE start-rec/stop-rec (no auto-trigger)");
+    tprintf("Move-detect threshold (aborts uploads): >%.1f kt\n", config.start_speed_knots);
 
   // v2.0.0 foundation commands (SF_FIRMWARE_V2_SPEC.md Stage 1)
   } else if (cmd == "hwid") {

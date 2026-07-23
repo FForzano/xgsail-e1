@@ -54,6 +54,40 @@ static uint16_t s_connHandle = 0;
 static bool s_haveConn = false;
 static NimBLEServer* s_pServer = nullptr;
 
+// Pairing window (config.h's BLE_BOND_WINDOW_MS), opened by button.cpp's
+// long-press handler. 0 = closed. Gates writes to the two
+// secret-carrying characteristics (provisioning, device_config) for a
+// connection NimBLE doesn't already recognize as bonded — see
+// bondWriteAllowed() and docs/ble-config.md.
+static unsigned long s_bondWindowUntil = 0;
+
+static bool bondWindowOpen() {
+  return s_bondWindowUntil != 0 && (long)(millis() - s_bondWindowUntil) < 0;
+}
+
+void bleOpenBondWindow() {
+  s_bondWindowUntil = millis() + BLE_BOND_WINDOW_MS;
+  // Actually flip the SMP-level bonding flag, not just our app-side gate:
+  // with bonding off (the default, set below in bleRelayInit()), the
+  // WRITE_ENC permission on provisioning/device_config only demands an
+  // *encrypted* link, which a transient (non-bonded) pairing still
+  // satisfies — so a first-time bond that should persist for the owner's
+  // phone needs bonding actually enabled while the window is open.
+  // bleRelayTick() flips it back off once the window closes; an existing
+  // stored bond keeps reconnecting fine regardless of this flag (bondable
+  // mode only governs *new* pairing, not re-establishing an existing bond).
+  NimBLEDevice::setSecurityAuth(true, true, true);
+  Serial.printf("[BLE] Pairing window open for %lus\n", BLE_BOND_WINDOW_MS / 1000UL);
+}
+
+// A write is allowed either because the connection is already a
+// recognized bond from an earlier pairing (the owner's phone reconnecting
+// normally — no button press needed), or because the pairing window is
+// currently open (first-time bonding, gated behind the long-press).
+static bool bondWriteAllowed(NimBLEConnInfo& connInfo) {
+  return connInfo.isBonded() || bondWindowOpen();
+}
+
 // Recursively collects every pending (not yet uploaded) file under /sf,
 // same "file IS the upload unit" model as upload.cpp's countFilesToUpload/
 // uploadDirectory — the backend's session_upload is per-file here (one
@@ -112,6 +146,10 @@ class ManifestCallbacks : public NimBLECharacteristicCallbacks {
 
 class ProvisioningCallbacks : public NimBLECharacteristicCallbacks {
   void onWrite(NimBLECharacteristic* pChar, NimBLEConnInfo& connInfo) override {
+    if (!bondWriteAllowed(connInfo)) {
+      Serial.println("[BLE] provisioning: write rejected — outside pairing window");
+      return;
+    }
     NimBLEAttValue rx = pChar->getValue();
     String json((const char*)rx.data(), rx.length());
 
@@ -239,6 +277,17 @@ class ControlCallbacks : public NimBLECharacteristicCallbacks {
       haveStatus = true;
     } else if (strcmp(cmd, "calibrate-reset") == 0) {
       handleCalibrate(true, status);
+      haveStatus = true;
+    } else if (strcmp(cmd, "start-rec") == 0) {
+      // E1-specific extension alongside calibrate/calibrate-reset: lets
+      // the phone app start a session over BLE, same entry point as the
+      // physical button's short press and the console's `rec` command.
+      status["ok"] = startRecording();
+      status["logging"] = logging;
+      haveStatus = true;
+    } else if (strcmp(cmd, "stop-rec") == 0) {
+      status["ok"] = stopRecording();
+      status["logging"] = logging;
       haveStatus = true;
     } else {
       Serial.printf("[BLE] control: unknown cmd '%s'\n", cmd);
@@ -378,7 +427,11 @@ class DeviceConfigCallbacks : public NimBLECharacteristicCallbacks {
 
     JsonDocument doc;
     JsonDocument status;
-    if (deserializeJson(doc, json)) {
+    if (!bondWriteAllowed(connInfo)) {
+      Serial.println("[BLE] device_config: write rejected — outside pairing window");
+      status["status"] = "error";
+      status["reason"] = "pairing_window_closed";
+    } else if (deserializeJson(doc, json)) {
       status["status"] = "error";
       status["reason"] = "bad_json";
     } else if (xSemaphoreTake(sdMutex, BLE_SD_MUTEX_TIMEOUT) != pdTRUE) {
@@ -492,9 +545,14 @@ void bleRelayInit() {
     bleInitialized = true;
   }
 
-  // `provisioning` carries the device_api_key — bonded + encrypted only
-  // (docs/device-protocol.md §8.2).
-  NimBLEDevice::setSecurityAuth(true, true, true);  // bond, MITM, secure connections
+  // `provisioning`/`device_config` carry secrets (device_api_key, WiFi
+  // password) and are WRITE_ENC, which only demands an encrypted link —
+  // bonding itself starts OFF so a first-time pairing is transient
+  // (no persistent bond, no future auto-reconnect for that phone) unless
+  // the operator's long-press opens the pairing window (bleOpenBondWindow()
+  // flips this to bonding=true for the window's duration). An already-
+  // bonded phone's reconnect is unaffected by this flag either way.
+  NimBLEDevice::setSecurityAuth(false, true, true);  // MITM + secure connections, bonding gated by the pairing window
 
   s_pServer = NimBLEDevice::createServer();
   s_pServer->setCallbacks(new RelayServerCallbacks());
@@ -554,6 +612,12 @@ void bleRelayInit() {
 }
 
 void bleRelayTick() {
+  if (s_bondWindowUntil != 0 && (long)(millis() - s_bondWindowUntil) >= 0) {
+    s_bondWindowUntil = 0;
+    NimBLEDevice::setSecurityAuth(false, true, true);
+    Serial.println("[BLE] Pairing window closed");
+  }
+
   if (!s_xferActive || !s_haveConn) return;
 
   // A handful of chunks per tick — enough throughput without hogging

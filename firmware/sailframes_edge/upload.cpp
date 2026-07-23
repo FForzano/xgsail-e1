@@ -477,9 +477,12 @@ void uploadDirectory(const char* dirname) {
       file.close();  // Close file handle before upload
 
       if (!name.endsWith(".uploaded") && !isUploaded(filepath)) {
-        // Check if boat started moving - abort upload to allow recording to start
-        if (gps.speed_kts >= config.start_speed_knots || recState == REC_ARMED) {
-          Serial.println("[UPLOAD] Boat moving, aborting upload to allow recording");
+        // Recording is button-triggered now, but still bail out of an
+        // upload cycle once the boat is actually moving or already
+        // recording, so a slow PUT doesn't contend with SD/WiFi the
+        // operator needs mid-sail.
+        if (logging || gps.speed_kts >= config.start_speed_knots) {
+          Serial.println("[UPLOAD] Boat moving/recording, aborting upload");
           root.close();
           return;  // Exit uploadDirectory immediately
         }

@@ -99,7 +99,8 @@ xgsail-e1/
 │       ├── wind_sensor.h/.cpp    # Calypso Mini BLE client
 │       ├── pressure.h/.cpp       # DPS310 read + gust-detection min/max
 │       ├── battery.h/.cpp        # LiPo voltage monitoring + low-battery halt
-│       ├── recording.h/.cpp      # GPS-speed-triggered recording state machine
+│       ├── button.h/.cpp         # Momentary pushbutton: debounce, short/long press dispatch
+│       ├── recording.h/.cpp      # Button-triggered recording start/stop
 │       ├── ocs.h/.cpp            # On-course-side detection + RC fleet aggregation
 │       ├── display.h/.cpp        # TFT dashboard rendering (D1/D2/D3 + RC panels)
 │       ├── storage.h/.cpp        # SD session logging + /boot.log

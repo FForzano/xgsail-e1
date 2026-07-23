@@ -150,6 +150,16 @@ NimBLE-Arduino runs both roles concurrently (`sailframes_edge.ino`'s
 `CONFIG_BT_NIMBLE_ROLE_*` — central for the Calypso wind sensor, peripheral
 for this relay).
 
+Bonding itself is off by default (`bleRelayInit()`'s
+`NimBLEDevice::setSecurityAuth(false, true, true)`) — a not-yet-bonded
+phone can still connect, but a write to `provisioning` or `device_config`
+(the two characteristics that can carry a secret: `device_api_key`, WiFi
+password) is rejected unless this connection is already a recognized
+bond, or `button.cpp`'s long-press handler has opened a timed pairing
+window (`bleOpenBondWindow()`, `config.h`'s `BLE_BOND_WINDOW_MS`) — see
+`docs/hardware.md` for the button and `docs/ble-config.md` for the full
+spec. `bleRelayTick()` closes the window again once it expires.
+
 Each pending SD file (same file-driven pending list `upload.cpp` walks) is
 one `session_manifest` entry, keyed by its SD path as the manifest's
 `session_id` — the device never learns the backend's real

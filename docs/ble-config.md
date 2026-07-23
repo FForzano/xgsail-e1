@@ -23,6 +23,46 @@ are the full spec.
 Same service as the device-protocol relay:
 `24e6db2c-3c8a-4b5b-ba5a-23bc4c818046`.
 
+## Pairing window (first-time bonding)
+
+The device's BLE bonding flag is **off by default** — a phone that
+isn't already a recognized bond can still connect and read plain
+characteristics, but a write to `provisioning` (`docs/device-protocol.md`
+§8.2, carries `device_api_key`) or `device_config` (can carry a WiFi
+password) is rejected with `{"status":"error","reason":"pairing_window_closed"}`
+unless the connection is already bonded from an earlier pairing.
+
+A long press (`button.h`, `BUTTON_LONG_PRESS_MS` in `config.h`, 2s) on the
+device's physical button opens a pairing window
+(`BLE_BOND_WINDOW_MS`, 60s) during which bonding is enabled and a new
+phone's write to either characteristic is allowed and, on success,
+persists as a bond — that phone reconnects and writes normally forever
+after, with no further button presses. There's no in-band way to open
+the window over BLE itself: physical access to the boat is the point.
+
+## `control` characteristic — start/stop recording
+
+```json
+{ "cmd": "start-rec" }
+```
+```json
+{ "cmd": "stop-rec" }
+```
+
+Same entry point as the physical button's short press and the console's
+`rec`/`stoprec` commands (`recording.h`'s `startRecording()`/
+`stopRecording()`) — recording is button/app-triggered only, there is no
+GPS-speed auto-start. Neither command requires bonding (same as
+`calibrate`/`calibrate-reset` below — nothing here is a secret). Notifies
+back on `control`:
+
+```json
+{ "cmd": "start-rec", "ok": true, "logging": true }
+```
+
+`ok` is `false` if the command was a no-op (already recording / already
+stopped, or no SD card for `start-rec`).
+
 ## `device_config` characteristic
 
 | | |
@@ -30,10 +70,11 @@ Same service as the device-protocol relay:
 | UUID | `042dfd7c-88f4-4ae8-af9a-eb1d7be7a3c6` |
 | Properties | `read`, `write` (bonded + encrypted), `notify` |
 
-**Security**: writing requires a bonded, encrypted link — the same
-requirement as the `provisioning` characteristic in
-`docs/device-protocol.md` §8.2, since a write can carry a WiFi password.
-Reading is plain (no bonding required): nothing this characteristic
+**Security**: writing requires an encrypted link, and — unless this
+connection is already a recognized bond from an earlier pairing —
+requires the pairing window to be open (see above), same as
+`provisioning` in `docs/device-protocol.md` §8.2, since a write can carry
+a WiFi password. Reading is plain (no bonding required): nothing this characteristic
 returns is sensitive, because **`wifi[].pass` is never included in a
 read response** — it's write-only, always sent back as `""` regardless
 of connection state. Set a password, but don't expect to read it back.
@@ -87,8 +128,10 @@ or, on failure:
 { "status": "error", "reason": "bad_json" }
 ```
 
-(`reason` is one of `bad_json` — the write body didn't parse as JSON —
-or `sd_busy` — the SD card was in use by the recording/upload path at
+(`reason` is one of `pairing_window_closed` — this connection isn't
+already bonded and no long-press has opened the pairing window (see
+above) — `bad_json` — the write body didn't parse as JSON — or
+`sd_busy` — the SD card was in use by the recording/upload path at
 the moment of the write; safe to retry).
 
 ### Field reference and live-apply behavior
