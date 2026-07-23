@@ -166,16 +166,19 @@ encrypted link (`NimBLEDevice::setSecurityAuth(true, true, true)`); so
 does `device_config`'s write, for the same reason (it can carry a WiFi
 password) — see below.
 
-The same service also carries an E1-specific extension beyond
+The same service also carries E1-specific extensions beyond
 `docs/device-protocol.md` §8: a `device_config` characteristic for live
 remote configuration (WiFi credentials, boat identity, recording
-thresholds, RTK enable, ...) and two extra `control` commands
-(`calibrate`/`calibrate-reset`) for IMU calibration. Full field-by-field
-spec in `docs/ble-config.md` — not duplicated here. Every field applies
-live, no reboot, by calling the small refresh helper its owning module
-already exposes (`applyUnitRole()`, `applyRecordingThresholds()`,
-`forceWindReconnect()`, `gnssConfigure()`, `boatIdHash()`) rather than
-requiring a fresh `loadConfig()` pass.
+thresholds, RTK enable, ...), two extra `control` commands
+(`calibrate`/`calibrate-reset`) for IMU calibration, and a read-only
+`status` characteristic exposing live runtime state (battery, WiFi, GPS,
+sensor presence, wind reading, recording activity) — the same fields the
+console's `status` command prints, just as JSON. Full field-by-field
+spec in `docs/ble-config.md` — not duplicated here. Every `device_config`
+field applies live, no reboot, by calling the small refresh helper its
+owning module already exposes (`applyUnitRole()`,
+`applyRecordingThresholds()`, `forceWindReconnect()`, `gnssConfigure()`,
+`boatIdHash()`) rather than requiring a fresh `loadConfig()` pass.
 
 Because BLE callbacks run on the NimBLE host's own FreeRTOS task — a
 third execution context beyond Core 1's `loop()` and Core 0's upload
