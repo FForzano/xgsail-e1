@@ -60,3 +60,4 @@ _autosave-*
 *.swp
 *~
 .claude
+.VSCodeCounter
