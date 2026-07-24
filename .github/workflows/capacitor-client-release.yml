@@ -4,7 +4,9 @@ name: Capacitor client build & publish
 # public npm registry. Publish is gated on a `capacitor-v*` tag — each client
 # under clients/ gets its own tag prefix (matching its package name) so they
 # release independently and never collide with each other or with the
-# firmware release's `v*` tags (firmware-release.yml). Pushes/PRs that touch
+# firmware release's `v*` tags (firmware-release.yml). The tag name is the
+# published version (e.g. `capacitor-v0.1.1` -> "0.1.1"), not package.json's
+# committed value — see "Set version from tag" below. Pushes/PRs that touch
 # the package build only, no publish.
 on:
   push:
@@ -53,11 +55,19 @@ jobs:
       - name: Install
         run: npm ci
 
+      # The tag is the single source of truth for the published version —
+      # package.json's committed "version" is just a placeholder, never
+      # manually bumped per release. Only meaningful on a capacitor-v* tag
+      # push; a no-op on branch/PR builds (nothing downstream reads it then).
+      - name: Set version from tag
+        if: startsWith(github.ref, 'refs/tags/capacitor-v')
+        run: npm pkg set version="${GITHUB_REF_NAME#capacitor-v}"
+
       - name: Build
         run: npm run build
 
-      # Only on a capacitor-v* tag: publish the version currently in
-      # package.json to the public npm registry via OIDC — no token env var.
+      # Only on a capacitor-v* tag: publish to the public npm registry via
+      # OIDC — no token env var.
       - name: Publish
         if: startsWith(github.ref, 'refs/tags/capacitor-v')
         run: npm publish --access public
