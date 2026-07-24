@@ -1,0 +1,63 @@
+name: Capacitor client build & publish
+
+# Builds clients/capacitor (@xgsail-e1/capacitor) and publishes it to the
+# public npm registry. Publish is gated on a `capacitor-v*` tag — each client
+# under clients/ gets its own tag prefix (matching its package name) so they
+# release independently and never collide with each other or with the
+# firmware release's `v*` tags (firmware-release.yml). Pushes/PRs that touch
+# the package build only, no publish.
+on:
+  push:
+    tags:
+      - 'capacitor-v*'
+    branches:
+      - master
+    paths:
+      - 'clients/capacitor/**'
+      - '.github/workflows/capacitor-client-release.yml'
+  pull_request:
+    paths:
+      - 'clients/capacitor/**'
+      - '.github/workflows/capacitor-client-release.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  # OIDC trusted publishing (docs.npmjs.com/trusted-publishers): lets the
+  # Publish step below authenticate to npm with a short-lived token GitHub
+  # issues for this run, exchanged via npm's registry — no NPM_TOKEN secret
+  # to store or leak. Requires this exact repo+workflow to be registered as
+  # @xgsail-e1/capacitor's trusted publisher on npmjs.com.
+  id-token: write
+
+defaults:
+  run:
+    working-directory: clients/capacitor
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          registry-url: 'https://registry.npmjs.org'
+
+      # Trusted publishing needs npm CLI >= 11.5.1 for the OIDC exchange;
+      # pin to latest rather than trust whatever setup-node's Node 22 bundles.
+      - name: Ensure npm supports trusted publishing
+        run: npm install -g npm@latest
+
+      - name: Install
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      # Only on a capacitor-v* tag: publish the version currently in
+      # package.json to the public npm registry via OIDC — no token env var.
+      - name: Publish
+        if: startsWith(github.ref, 'refs/tags/capacitor-v')
+        run: npm publish --access public

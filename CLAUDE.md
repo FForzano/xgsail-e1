@@ -110,6 +110,16 @@ xgsail-e1/
 │       ├── ble_relay.h/.cpp      # BLE GATT peripheral: WiFi-less claim/upload relay
 │       ├── upload.h/.cpp         # WiFi connect + device-protocol upload (Core-0 task) + diagnostics
 │       └── shared_state.h/.cpp   # Cross-cutting: hang-watchdog breadcrumbs, WiFi-busy gate, SD mutex
+├── clients/              # Reusable client libraries for talking to the E1,
+│                         # one subdirectory per platform/language (more
+│                         # planned: python, flutter, swift, ...) — each its
+│                         # own package/registry, its own release workflow.
+│   └── capacitor/        # @xgsail-e1/capacitor: TypeScript/Capacitor client
+│                         # — low-level BLE transport (docs/ble-config.md's
+│                         # GATT contract) plus high-level claim/upload
+│                         # management over a pluggable backend + key store.
+│                         # Published to npm; self-contained (no dependency
+│                         # on any consuming app, e.g. xgsail's native app).
 └── hardware/              # KiCad 8+ project: schematic, PCB, Gerbers, BOM
 ```
 

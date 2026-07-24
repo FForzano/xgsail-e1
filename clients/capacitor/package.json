@@ -1,0 +1,54 @@
+{
+  "name": "@xgsail-e1/capacitor",
+  "version": "0.1.0",
+  "description": "TypeScript BLE client for the E1 sailing tracker — GATT protocol UUIDs, config/status, calibration, and session-relay primitives (Capacitor).",
+  "license": "Apache-2.0",
+  "author": "Federico Forzano",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "sideEffects": false,
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "prepublishOnly": "npm run build"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/FForzano/xgsail-e1.git",
+    "directory": "clients/capacitor"
+  },
+  "keywords": [
+    "e1",
+    "sailing",
+    "ble",
+    "bluetooth",
+    "capacitor",
+    "esp32"
+  ],
+  "peerDependencies": {
+    "@aparajita/capacitor-secure-storage": "^8.0.0",
+    "@capacitor-community/bluetooth-le": "^8.0.0",
+    "@capacitor/core": "^8.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@aparajita/capacitor-secure-storage": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@aparajita/capacitor-secure-storage": "^8.0.0",
+    "@capacitor-community/bluetooth-le": "^8.2.0",
+    "@capacitor/core": "^8.4.2",
+    "typescript": "^5.5.0"
+  }
+}
