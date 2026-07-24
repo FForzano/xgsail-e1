@@ -160,6 +160,14 @@ struct Config {
   // configurability (not a cloud push) is deliberate: a bonded BLE write
   // requires physical proximity to the boat, unlike a remote push.
   bool rtk_enabled          = false;
+
+  // Deletes a session file (+ its .uploaded marker) right after a
+  // successful upload — WiFi (upload.cpp) or BLE relay ack (ble_relay.cpp)
+  // — instead of leaving it on the SD card for the manual `cleanup`/
+  // `delup` console command. Configurable live over BLE (device_config,
+  // docs/ble-config.md). Defaults on: most operators want the SD card to
+  // stay ahead of itself rather than fill up over a season.
+  bool auto_cleanup_uploads = true;
 };
 
 extern Config config;

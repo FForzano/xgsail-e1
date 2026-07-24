@@ -135,6 +135,7 @@ implying it changes which XGSail boat the device's data belongs to.
   "start_delay_sec": 10,
   "stop_delay_sec": 180,
   "rtk_enabled": false,
+  "auto_cleanup_uploads": true,
   "wifi": [
     { "ssid": "YourHomeNetwork", "pass": "" },
     { "ssid": "YachtClubNetwork", "pass": "" }
@@ -190,9 +191,10 @@ one applies:
 | `unit_role` | string: `racing_boat`, `rc_signal`, `rc_pin`, `mark`, `committee_chase`, `spare` | Immediately. |
 | `wind_mac` | string, Calypso MAC (`AA:BB:CC:DD:EE:FF`) or `""` | Immediately — an empty string disables the wind sensor; any other value enables it and forces a reconnect to the new device on the next cycle. |
 | `wind_offset` | int, degrees | Immediately. |
-| `start_speed_knots` / `stop_speed_knots` | float, knots | Immediately. |
-| `start_delay_sec` / `stop_delay_sec` | int, seconds | Immediately. |
+| `start_speed_knots` | float, knots | Immediately — but only fed into upload.cpp's "boat is moving, don't upload right now" check. Recording itself is button/console/BLE-triggered (`control`'s `start-rec`/`stop-rec` above), not speed-triggered. |
+| `stop_speed_knots` / `start_delay_sec` / `stop_delay_sec` | float / int / int | Round-tripped for older cards' `config.txt` compatibility — **unused by the firmware**. Don't build UI around them. |
 | `rtk_enabled` | bool | Immediately — reconfigures the GNSS module (base/rover RTK) right away, the same live path the console's `gpscfg` command already uses. |
+| `auto_cleanup_uploads` | bool | Immediately — the next successful upload (WiFi or BLE relay) reads it fresh before deciding whether to delete the file. Default `true`. |
 
 **Not configurable here, and why:**
 - `claim_code` — irrelevant to this characteristic. BLE claiming already
@@ -282,7 +284,7 @@ boat's GPS position and WiFi SSID, not a password).
   "sensors": { "imu": true, "pressure": true, "wind": true },
   "gps": { "fix": true, "satellites": 9, "hdop": 1.2, "lat": 42.36012, "lon": -71.05821, "speed_kts": 5.2, "course": 210 },
   "wind": { "connected": true, "speed_kts": 12.1, "angle_deg": 45, "battery": 88 },
-  "recording": { "logging": true, "session_count": 3, "pending_uploads": 1 }
+  "recording": { "logging": true, "session_count": 3, "pending_uploads": 1, "elapsed_s": 842 }
 }
 ```
 
@@ -300,6 +302,9 @@ Field notes:
 - `recording.pending_uploads` counts sessions with files still to
   upload, over WiFi or BLE relay — same count the `status` console
   command and the device's own display show.
+- `recording.elapsed_s` — seconds since the current session started
+  (`storage.cpp`'s `logStart`). Only present while `logging` is `true`;
+  omitted rather than stale when not recording.
 
 ## Concurrency note (for firmware maintainers, not app authors)
 

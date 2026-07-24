@@ -170,6 +170,12 @@ gets a `.uploaded` marker so it's never re-sent by either upload path
 (WiFi or BLE relay). Trigger a cycle immediately with the `upload`
 console command, or check pending state with `status`.
 
+By default (`config.txt`'s `auto_cleanup_uploads`, also settable live
+over BLE — `docs/ble-config.md`), a file is deleted from the SD card
+right after it uploads successfully, instead of sticking around for the
+manual `cleanup`/`delup` console command. Turn it off if you'd rather
+keep a local copy of every session regardless of upload state.
+
 ## BLE relay
 
 Alongside direct WiFi upload, the device always advertises a BLE GATT

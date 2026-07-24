@@ -40,6 +40,11 @@ extern unsigned long g_lastAliveLog;
 bool isUploaded(const char* filepath);
 int  deleteUploadedFiles(const char* dirname);
 void markUploaded(const char* filepath);
+// Deletes filepath + its .uploaded marker if config.auto_cleanup_uploads
+// is set — called right after markUploaded() by both upload paths (this
+// WiFi one and ble_relay.cpp's ack-uploaded). No-op otherwise. Caller
+// holds sdMutex.
+void cleanupIfAutoDelete(const char* filepath);
 
 // Uploads one file via the XGSail device protocol (docs/device-protocol.md
 // §4.1): POST /api/devices/me/session-uploads, then PUT the raw bytes to

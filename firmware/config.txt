@@ -31,13 +31,21 @@ wifi2_pass=changeme
 # Calypso Mini wind sensor heading offset in degrees (mounting correction).
 wind_offset=0
 
-# Recording thresholds: session auto-starts once speed sustains above
-# start_speed_knots for start_delay_sec. It only stops on a clean
-# power-off or the `stoprec` console command (see firmware/README.md).
+# Recording is manual (button press, console rec/stoprec, or BLE
+# start-rec/stop-rec) — see firmware/README.md. start_speed_knots
+# survives only as the "boat is moving" heuristic that aborts an
+# in-progress upload cycle; stop_speed_knots/start_delay_sec/
+# stop_delay_sec are unused, kept for older cards' compatibility.
 start_speed_knots=1.5
 stop_speed_knots=0.5
 start_delay_sec=10
 stop_delay_sec=180
+
+# Deletes a session's files from the SD card right after they upload
+# successfully (WiFi or BLE relay), instead of leaving them for the
+# manual `cleanup`/`delup` console command. Also settable live over BLE
+# (device_config, docs/ble-config.md).
+auto_cleanup_uploads=true
 
 # Fleet unit role: racing_boat, rc_signal, rc_pin, mark, committee_chase, spare.
 unit_role=racing_boat

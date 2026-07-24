@@ -108,6 +108,22 @@ void markUploaded(const char* filepath) {
   }
 }
 
+// If config.auto_cleanup_uploads is set, deletes filepath and its
+// .uploaded marker right away instead of leaving them for the manual
+// `cleanup`/`delup` console command. Called after markUploaded() from
+// both upload paths — this WiFi one (uploadDirectory(), below) and the
+// BLE relay's ack-uploaded (ble_relay.cpp) — so the two never diverge on
+// what "uploaded" ends up doing to the SD card. Caller holds sdMutex.
+void cleanupIfAutoDelete(const char* filepath) {
+  if (!config.auto_cleanup_uploads) return;
+  char marker[128];
+  snprintf(marker, sizeof(marker), "%s.uploaded", filepath);
+  if (SD.remove(filepath)) {
+    Serial.printf("[UPLOAD] Auto-cleanup: deleted %s\n", filepath);
+  }
+  SD.remove(marker);
+}
+
 // Splits a URL into scheme/host/port/path — needed because session-uploads
 // (§4.1) hands back an arbitrary presigned upload_url (S3, MinIO, whatever
 // the deployment's object store is), not a fixed known host like the old
@@ -502,6 +518,7 @@ void uploadDirectory(const char* dirname) {
 
         if (uploadFile(filepath)) {
           markUploaded(filepath);
+          cleanupIfAutoDelete(filepath);
         }
         esp_task_wdt_reset();  // and after — single PUT can be 8s+
 

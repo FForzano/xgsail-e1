@@ -698,10 +698,15 @@ void processCommand(String cmd, bool fromTelnet) {
     tprintln("=== Recording State ===");
     tprintf("State: %s\n", getRecStateStr());
     tprintf("Logging: %s\n", logging ? "YES" : "NO");
+    if (logging) {
+      unsigned long elapsed = (millis() - logStart) / 1000;
+      tprintf("Elapsed: %lu:%02lu:%02lu\n", elapsed / 3600, (elapsed / 60) % 60, elapsed % 60);
+    }
     tprintf("Session: %d\n", sessionCount);
     tprintf("Speed: %.1f kt\n", gps.speed_kts);
     tprintln("Start/stop: button, console rec/stoprec, or BLE start-rec/stop-rec (no auto-trigger)");
     tprintf("Move-detect threshold (aborts uploads): >%.1f kt\n", config.start_speed_knots);
+    tprintf("Auto-cleanup after upload: %s\n", config.auto_cleanup_uploads ? "ON" : "OFF");
 
   // v2.0.0 foundation commands (SF_FIRMWARE_V2_SPEC.md Stage 1)
   } else if (cmd == "hwid") {

@@ -76,6 +76,7 @@ void loadConfig() {
     else if (k == "hardware_platform") v.toCharArray(config.hardware_platform, sizeof(config.hardware_platform));
     else if (k == "unit_role")         v.toCharArray(config.unit_role, sizeof(config.unit_role));
     else if (k == "rtk_enabled")       config.rtk_enabled = (v == "1" || v.equalsIgnoreCase("true"));
+    else if (k == "auto_cleanup_uploads") config.auto_cleanup_uploads = (v == "1" || v.equalsIgnoreCase("true"));
   }
   f.close();
 
@@ -144,6 +145,7 @@ void saveConfig() {
   f.printf("hardware_platform=%s\n", config.hardware_platform);
   f.printf("unit_role=%s\n", config.unit_role);
   f.printf("rtk_enabled=%s\n", config.rtk_enabled ? "true" : "false");
+  f.printf("auto_cleanup_uploads=%s\n", config.auto_cleanup_uploads ? "true" : "false");
   f.close();
 
   Serial.println("[CFG] saveConfig: /config.txt rewritten");

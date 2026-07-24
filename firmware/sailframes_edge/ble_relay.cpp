@@ -232,6 +232,7 @@ static void ackUploaded(const String& sessionId) {
   }
   if (xSemaphoreTake(sdMutex, BLE_SD_MUTEX_TIMEOUT) == pdTRUE) {
     markUploaded(sessionId.c_str());
+    cleanupIfAutoDelete(sessionId.c_str());
     xSemaphoreGive(sdMutex);
   } else {
     Serial.println("[BLE] control: SD busy, ack-uploaded not marked — app should retry");
@@ -345,6 +346,7 @@ static String buildDeviceConfigJson() {
   doc["start_delay_sec"] = config.start_delay_sec;
   doc["stop_delay_sec"] = config.stop_delay_sec;
   doc["rtk_enabled"] = config.rtk_enabled;
+  doc["auto_cleanup_uploads"] = config.auto_cleanup_uploads;
   JsonArray wifiArr = doc["wifi"].to<JsonArray>();
   for (int i = 0; i < config.wifi_count; i++) {
     JsonObject w = wifiArr.add<JsonObject>();
@@ -415,6 +417,12 @@ static void applyDeviceConfigWrite(JsonDocument& doc) {
     // Same live reconfiguration path the console's `gpscfg` command
     // already uses — proven safe without a reboot.
     gnssConfigure();
+  }
+
+  if (doc["auto_cleanup_uploads"].is<bool>()) {
+    config.auto_cleanup_uploads = doc["auto_cleanup_uploads"];
+    // No refresh needed — read fresh by both upload paths on their next
+    // successful upload (upload.cpp's cleanupIfAutoDelete()).
   }
 
   if (doc["wifi"].is<JsonArray>()) {
@@ -525,6 +533,9 @@ static String buildStatusJson() {
   rec["logging"] = logging;
   rec["session_count"] = sessionCount;
   rec["pending_uploads"] = pendingUploads;
+  // Only meaningful while logging — logStart isn't reset on stop, so a
+  // stale elapsed reading from the last session would be misleading here.
+  if (logging) rec["elapsed_s"] = (uint32_t)((millis() - logStart) / 1000);
 
   String out;
   serializeJson(doc, out);
