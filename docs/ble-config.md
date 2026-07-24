@@ -95,6 +95,28 @@ relay's `session_manifest` entries too (an addition beyond
 `docs/device-protocol.md` §8.2's manifest shape) so an app relaying the
 `session-uploads` call itself later knows what was originally intended.
 
+## `control` characteristic — manual OTA update
+
+```json
+{ "cmd": "ota-update" }
+```
+
+Triggers an immediate firmware update check-and-apply (`docs/ota.md`),
+regardless of `device_config`'s `ota_auto_update` setting. `ota-check` is
+accepted as an alias. Like `start-rec`/`stop-rec`/`calibrate` above, this
+doesn't require bonding — it doesn't touch persisted config, just kicks off a
+check. Notifies back immediately:
+
+```json
+{ "cmd": "ota-update", "ok": true, "message": "ota update requested" }
+```
+
+`ok` is `false` only if the device refused outright — currently just
+`"recording in progress"`. This ack does **not** report the update's outcome:
+a successful update reboots the device, so there's nothing to notify back on
+`control`. Poll the `status` characteristic's `ota` object (below) for
+progress and result instead.
+
 ## `device_config` characteristic
 
 | | |
@@ -136,6 +158,8 @@ implying it changes which XGSail boat the device's data belongs to.
   "stop_delay_sec": 180,
   "rtk_enabled": false,
   "auto_cleanup_uploads": true,
+  "ota_auto_update": false,
+  "ota_base_url": "https://xgsail.com/ota",
   "display_mode": 2,
   "wifi": [
     { "ssid": "YourHomeNetwork", "pass": "" },
@@ -196,6 +220,8 @@ one applies:
 | `stop_speed_knots` / `start_delay_sec` / `stop_delay_sec` | float / int / int | Round-tripped for older cards' `config.txt` compatibility — **unused by the firmware**. Don't build UI around them. |
 | `rtk_enabled` | bool | Immediately — reconfigures the GNSS module (base/rover RTK) right away, the same live path the console's `gpscfg` command already uses. |
 | `auto_cleanup_uploads` | bool | Immediately — the next successful upload (WiFi or BLE relay) reads it fresh before deciding whether to delete the file. Default `true`. |
+| `ota_auto_update` | bool | Persisted opt-in for automatic OTA firmware update checks (`docs/ota.md`). Default `false`. A manual update can still be triggered with `control`'s `ota-update` (above) even when this is off. Never runs while recording either way. |
+| `ota_base_url` | string, URL | Persisted. Base URL of the OTA firmware feed (`<url>/manifest.json`). Default `https://xgsail.com/ota` — only override for staging/self-hosted. Read fresh on the next OTA check. |
 | `display_mode` | int, `1`\|`2`\|`3` | Immediately — same effect as cycling the console's `display` command: `1` = D1 (simple, large numbers), `2` = D2 (Vakaros-style nav + wind, default), `3` = D3 (wind focus). Out-of-range values are ignored (rest of the write still applies). Persisted, so it survives a reboot. |
 
 **Not configurable here, and why:**
@@ -286,11 +312,21 @@ boat's GPS position and WiFi SSID, not a password).
   "sensors": { "imu": true, "pressure": true, "wind": true },
   "gps": { "fix": true, "satellites": 9, "hdop": 1.2, "lat": 42.36012, "lon": -71.05821, "speed_kts": 5.2, "course": 210 },
   "wind": { "connected": true, "speed_kts": 12.1, "angle_deg": 45, "battery": 88 },
-  "recording": { "logging": true, "session_count": 3, "pending_uploads": 1, "elapsed_s": 842 }
+  "recording": { "logging": true, "session_count": 3, "pending_uploads": 1, "elapsed_s": 842 },
+  "ota": { "state": "downloading", "progress": 42 }
 }
 ```
 
 Field notes:
+- `firmware_version` — the running build, `YYYY.MM.DD.N` (date + daily
+  build number). Always present. It's the basis for OTA's "is a newer build
+  available?" decision (`docs/ota.md`), and the same value the device reports
+  to the backend in its health snapshot.
+- `ota` — state of the last automatic or manual (`control`'s `ota-update`)
+  update check (`docs/ota.md`). `state` is one of `idle` / `checking` /
+  `up_to_date` / `downloading` / `applying` / `suspended` / `error`.
+  `progress` (0-100) is only present while `downloading`. `message` is a
+  short detail, present on `error`/`suspended`.
 - `wifi.ssid`/`wifi.ip` are only present when `wifi.connected` is `true`.
 - `sensors` reports **presence**, not live readings — whether the IMU/
   pressure chip were detected at boot, and whether a wind sensor is

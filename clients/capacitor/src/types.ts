@@ -45,6 +45,15 @@ export interface E1Config {
   start_speed_knots: number;
   rtk_enabled: boolean;
   auto_cleanup_uploads: boolean;
+  // Owner opt-in for automatic OTA firmware updates (docs/ota.md). A manual
+  // update can still be triggered with requestOtaUpdate() (control.ts) even
+  // when this is off. No update is ever attempted while the device is
+  // recording.
+  ota_auto_update: boolean;
+  // Base URL of the OTA firmware feed the device checks (manifest.json under
+  // it). Defaults to the production feed; only override for staging/
+  // self-hosted.
+  ota_base_url: string;
   // 1 = D1 (simple SOG/COG), 2 = D2 (nav + wind, default), 3 = D3 (wind
   // focus) — see docs/hardware.md "Display" section for what each layout
   // shows; out-of-range values are ignored by the firmware.
@@ -66,6 +75,9 @@ export class ConfigWriteError extends Error {
 
 export interface E1Status {
   claimed: boolean;
+  // Running firmware version, YYYY.MM.DD.N (date + daily build). Stable,
+  // always-present read — the basis for an OTA "is a newer build available?"
+  // decision once OTA ships (docs/ota.md).
   firmware_version: string;
   uptime_s: number;
   heap_free: number;
@@ -85,6 +97,15 @@ export interface E1Status {
   wind: { connected: boolean; speed_kts?: number; angle_deg?: number; battery?: number };
   // elapsed_s is only present while logging is true (docs/ble-config.md).
   recording: { logging: boolean; session_count: number; pending_uploads: number; elapsed_s?: number };
+  // OTA state (docs/ota.md) — reflects the last automatic or manual
+  // (requestOtaUpdate()) update check. `progress` is 0-100 while
+  // downloading, absent otherwise. `message` is a short human-readable
+  // detail, present on "error"/"suspended" and while "downloading".
+  ota: {
+    state: "idle" | "checking" | "up_to_date" | "downloading" | "applying" | "suspended" | "error";
+    progress?: number;
+    message?: string;
+  };
 }
 
 // --- control command replies ------------------------------------------------
@@ -99,4 +120,12 @@ export interface CalibrateResult {
 export interface RecCommandResult {
   ok: boolean;
   logging: boolean;
+}
+
+// Ack for requestOtaUpdate() (control.ts) — only confirms the device queued
+// the check, e.g. "ok: false, message: recording in progress". Poll
+// readStatus(...).ota for the actual outcome (docs/ota.md).
+export interface OtaUpdateResult {
+  ok: boolean;
+  message?: string;
 }

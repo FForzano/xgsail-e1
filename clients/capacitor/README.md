@@ -13,8 +13,8 @@ E1-specific configuration/calibration spec.
 
 **BLE transport (low level):** scan & discovery, connect/disconnect, read
 `identity`, read/write `device_config`, read `status`, calibrate / start-rec /
-stop-rec commands, and the session-relay primitives (`readManifest`,
-`transferSession`, `ackUploaded`, `writeProvisioning`).
+stop-rec / manual OTA-update commands, and the session-relay primitives
+(`readManifest`, `transferSession`, `ackUploaded`, `writeProvisioning`).
 
 **Device management (high level):** `createE1Client({ backend, keyStore })`
 gives you `claim(...)` and `uploadSessions(...)` — the full BLE-plus-backend
@@ -77,6 +77,17 @@ const config = await e1.readConfig(bleId);
 await e1.writeConfig(bleId, { display_mode: 2 });
 await e1.disconnect(bleId);
 ```
+
+`readStatus(...).firmware_version` is the device's running build
+(`YYYY.MM.DD.N`). `E1Config` includes `ota_auto_update` (owner's opt-in for
+automatic OTA firmware updates) and `ota_base_url` (which feed it checks) —
+see the repo's `docs/ota.md`. Regardless of `ota_auto_update`,
+`requestOtaUpdate(bleId)` (`control.ts`) triggers a manual check-and-apply from
+any bonded phone; poll `readStatus(...).ota` for progress
+(`checking`/`downloading`/`applying`/`up_to_date`/`suspended`/`error`) — a
+successful update reboots the device, so there's no final reply on the control
+characteristic itself. No update, automatic or manual, is ever attempted while
+the device is recording.
 
 ### Custom backend or key store
 

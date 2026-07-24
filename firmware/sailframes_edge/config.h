@@ -169,6 +169,24 @@ struct Config {
   // stay ahead of itself rather than fill up over a season.
   bool auto_cleanup_uploads = true;
 
+  // Whether the device may automatically pull and apply a firmware update
+  // when one is available (checkForFirmwareUpdate(), upload.cpp). Defaults
+  // OFF: a device never auto-updates until the owner explicitly turns it on.
+  // Independent of the manual BLE trigger (control's `ota-update`), which
+  // works even with this off. Either way, no update is attempted while
+  // recording (upload.cpp's `logging` gate) and an in-progress download is
+  // suspended if recording starts, so an OTA flash never contends with an
+  // active session. Configurable/readable live over BLE (device_config,
+  // docs/ble-config.md). See docs/ota.md.
+  bool ota_auto_update = false;
+
+  // Base URL of the public OTA firmware feed. The device fetches
+  // `<ota_base_url>/manifest.json` -> { version, url, checksum } (same shape
+  // as xgsail's ota-service; docs/ota.md). No auth — firmware isn't secret,
+  // integrity is the manifest SHA256. Overridable per-boat via config.txt /
+  // BLE for staging or a self-hosted feed; defaults to the production feed.
+  char ota_base_url[128] = "https://xgsail.com/ota";
+
   // TFT nav display mode: 1 = D1 (simple big numbers), 2 = D2 (nav + wind,
   // default), 3 = D3 (wind focus) — see display.h. Persisted here so a BLE
   // device_config write (docs/ble-config.md) survives a reboot; display.cpp's

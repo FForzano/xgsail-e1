@@ -1,6 +1,6 @@
 import { BleClient, dataViewToText, textToDataView } from "@capacitor-community/bluetooth-le";
 import { SERVICE_UUID, CHAR_CONTROL } from "./protocol";
-import type { CalibrateResult, RecCommandResult } from "./types";
+import type { CalibrateResult, OtaUpdateResult, RecCommandResult } from "./types";
 
 /** Fire-and-forget write to the `control` characteristic. Used both by the
  * command helpers here and by the session-relay flow (start-transfer /
@@ -72,4 +72,15 @@ export function startRec(
 
 export function stopRec(bleId: string): Promise<RecCommandResult> {
   return sendControlCommand<RecCommandResult>(bleId, "stop-rec");
+}
+
+/** Manually triggers an OTA firmware update check + apply (docs/ota.md),
+ * regardless of the device's `ota_auto_update` setting. Works with any
+ * bonded phone — no pairing window required (like the other control
+ * commands here). The device refuses outright while recording. This only
+ * confirms the check was queued; the device reboots on a successful update,
+ * so poll `readStatus(bleId).ota` (status.ts) for progress/result rather
+ * than expecting a final reply here. */
+export function requestOtaUpdate(bleId: string): Promise<OtaUpdateResult> {
+  return sendControlCommand<OtaUpdateResult>(bleId, "ota-update");
 }

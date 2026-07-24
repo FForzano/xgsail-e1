@@ -77,6 +77,8 @@ void loadConfig() {
     else if (k == "unit_role")         v.toCharArray(config.unit_role, sizeof(config.unit_role));
     else if (k == "rtk_enabled")       config.rtk_enabled = (v == "1" || v.equalsIgnoreCase("true"));
     else if (k == "auto_cleanup_uploads") config.auto_cleanup_uploads = (v == "1" || v.equalsIgnoreCase("true"));
+    else if (k == "ota_auto_update")   config.ota_auto_update = (v == "1" || v.equalsIgnoreCase("true"));
+    else if (k == "ota_base_url")      v.toCharArray(config.ota_base_url, sizeof(config.ota_base_url));
     else if (k == "display_mode") {
       int m = v.toInt();
       if (m >= 1 && m <= 3) config.display_mode = m;
@@ -150,6 +152,8 @@ void saveConfig() {
   f.printf("unit_role=%s\n", config.unit_role);
   f.printf("rtk_enabled=%s\n", config.rtk_enabled ? "true" : "false");
   f.printf("auto_cleanup_uploads=%s\n", config.auto_cleanup_uploads ? "true" : "false");
+  f.printf("ota_auto_update=%s\n", config.ota_auto_update ? "true" : "false");
+  f.printf("ota_base_url=%s\n", config.ota_base_url);
   f.printf("display_mode=%d\n", config.display_mode);
   f.close();
 

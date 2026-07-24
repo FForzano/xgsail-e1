@@ -132,7 +132,19 @@ happens to drive them.
   true on the opening `POST`, and the object-storage `PUT` completing is
   what actually finalizes the data server-side.
 - **Health** (`uploadHealthSnapshot()`): the 5-field `POST
-  /api/devices/me/health` snapshot, once per boot.
+  /api/devices/me/health` snapshot, once per boot. The reported
+  `firmware_version` is what makes the running build visible server-side.
+- **OTA check** (`checkForFirmwareUpdate()`, `docs/ota.md`): runs once per
+  boot (and on subsequent health-check WiFi wakes) right after the health
+  snapshot, reusing that same WiFi window. Gated on `config.ota_auto_update`
+  and never while `logging` (recording). Fetches
+  `<ota_base_url>/manifest.json`, and on a strictly newer `version` streams
+  the image into the inactive OTA slot (`partitions.csv`'s dual app0/app1),
+  verifies its SHA256 before committing, and reboots into it. A manual
+  check-and-apply can also be triggered any time (even with
+  `ota_auto_update` off) via the BLE `control` `ota-update` command
+  (`docs/ble-config.md`); either path refuses outright, or suspends an
+  in-progress download, the moment recording starts.
 - Sessions with only some sensors present (no wind sensor paired, no
   pressure chip detected) upload exactly the files that exist — nothing
   waits for or assumes all four CSVs.

@@ -49,11 +49,15 @@ Arduino IDE or PlatformIO, sketch directory `sailframes_edge/`:
 - **Board:** ESP32 Dev Module
 - **Upload speed:** 921600
 - **Flash frequency:** 80 MHz
-- **Partition scheme:** No OTA (2MB APP/2MB SPIFFS) — this firmware has no
-  OTA update path, so the default scheme's second (unused) OTA app slot
-  just wastes flash; at ~1.6MB (TFT_eSPI + NimBLE + ArduinoJson + BNO08x/
-  DPS310 + WiFi/TLS), the *default* scheme's 1.2MB app partition is too
-  small to link at all
+- **Partition scheme:** Custom — Arduino IDE: **Tools → Partition Scheme →
+  "Custom"**, which uses the sketch-local `partitions.csv`. This is a
+  dual-app OTA-capable table (two ~1.94MB app slots + `otadata`, no SPIFFS);
+  the ~1.6MB image (TFT_eSPI + NimBLE + ArduinoJson + BNO08x/DPS310 +
+  WiFi/TLS) links with ~330KB headroom. SPIFFS is dropped because this
+  firmware stores everything on the SD card. The two slots are what the
+  firmware's own OTA update flow (`docs/ota.md`) flashes between — a device
+  previously flashed on the old No-OTA scheme must be reflashed once over
+  USB to adopt this table.
 
 ### Libraries (Arduino Library Manager)
 

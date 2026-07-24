@@ -47,6 +47,18 @@ stop_delay_sec=180
 # (device_config, docs/ble-config.md).
 auto_cleanup_uploads=true
 
+# Allow automatic over-the-air firmware updates (docs/ota.md). Off by
+# default (opt-in). A manual update can still be triggered from the phone
+# app over BLE even when this is off. Also settable live over BLE
+# (device_config, docs/ble-config.md). No update is ever attempted while a
+# recording is in progress.
+ota_auto_update=false
+
+# Base URL of the OTA firmware feed; the device fetches
+# <ota_base_url>/manifest.json. Defaults to the production feed — only set
+# this to point at a staging or self-hosted feed. Also settable over BLE.
+ota_base_url=https://xgsail.com/ota
+
 # Fleet unit role: racing_boat, rc_signal, rc_pin, mark, committee_chase, spare.
 unit_role=racing_boat
 

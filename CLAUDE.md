@@ -81,6 +81,7 @@ xgsail-e1/
 │   ├── firmware-architecture.md  # setup/loop, dual-core split, mesh, OCS, device protocol, BLE relay
 │   ├── ble-config.md             # BLE remote-configuration + calibration spec (E1-specific, not xgsail's protocol)
 │   ├── gnss-rtk.md               # LG290P config, RTCM3/MSM, RTK, PPK post-processing
+│   ├── ota.md                    # OTA firmware updates: partition table, manifest contract, download/verify/apply flow, BLE manual trigger
 │   └── hardware.md               # Power/battery, display, GPS-triggered recording
 ├── firmware/
 │   ├── README.md          # Build/flash, wiring, console commands, device-protocol upload
@@ -90,6 +91,7 @@ xgsail-e1/
 │   ├── sailframes_e1_diag/  # Standalone board bring-up diagnostic sketch
 │   └── sailframes_edge/   # Main sketch — one file/pair per responsibility:
 │       ├── sailframes_edge.ino   # Composition root: setup()/loop() only
+│       ├── partitions.csv        # Custom OTA-capable partition table (dual app0/app1 + otadata); build FQBN uses PartitionScheme=custom
 │       ├── config.h/.cpp         # Pins, firmware-wide constants, Config struct + loader
 │       ├── v2_types.h/.cpp       # Shared HardwarePlatform/UnitRole/RadioMode vocabulary
 │       ├── gnss.h/.cpp           # NMEA parsing, PQTM/LG290P config, GNSS read
@@ -146,13 +148,19 @@ not a change to how the firmware is built or flashed.
     command) against xgsail's docs/device-protocol.md claim flow
   → once stationary + WiFi in range: each pending session CSV → its own
     POST /api/devices/me/session-uploads + presigned PUT
-  → health snapshot, once per boot
+  → health snapshot, once per boot (reports firmware_version)
+  → OTA update check (checkForFirmwareUpdate()): fetches a public firmware
+    manifest, and on a newer version streams it into the inactive OTA slot,
+    verifies its SHA256, and reboots into it — opt-in (ota_auto_update) or
+    manually triggered over BLE; never runs (or suspends) while recording
+    (docs/ota.md)
   → ble_relay.cpp: the same claim/upload calls, relayed over a BLE GATT
     server by the owner's phone app when WiFi isn't available — a
     first-class path, not just a fallback, so it's always advertising
   → the same GATT service also exposes an E1-specific remote-config
-    characteristic + IMU calibration commands (docs/ble-config.md) —
-    not part of xgsail's protocol, documented in this repo instead
+    characteristic + IMU calibration + manual OTA-trigger commands
+    (docs/ble-config.md) — not part of xgsail's protocol, documented in
+    this repo instead
 ```
 
 See `docs/firmware-architecture.md` for the mesh/OCS/device-protocol/BLE-relay

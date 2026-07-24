@@ -313,6 +313,23 @@ class ControlCallbacks : public NimBLECharacteristicCallbacks {
       status["ok"] = stopRecording();
       status["logging"] = logging;
       haveStatus = true;
+    } else if (strcmp(cmd, "ota-update") == 0 || strcmp(cmd, "ota-check") == 0) {
+      // Manual OTA trigger — any bonded phone, any time (like the other
+      // control commands here; no pairing-window gate). The flash itself
+      // can't run in this BLE callback, so we just flag the Core-0 upload
+      // task, which brings WiFi up and runs the check/apply even if
+      // ota_auto_update is off. Refused outright while recording — an OTA
+      // flash must never contend with an active session (docs/ota.md).
+      // Poll the `ota` object in `status` for progress/result.
+      if (logging) {
+        status["ok"] = false;
+        status["message"] = "recording in progress";
+      } else {
+        otaManualRequested = true;
+        status["ok"] = true;
+        status["message"] = "ota update requested";
+      }
+      haveStatus = true;
     } else {
       Serial.printf("[BLE] control: unknown cmd '%s'\n", cmd);
     }
@@ -348,6 +365,8 @@ static String buildDeviceConfigJson() {
   doc["stop_delay_sec"] = config.stop_delay_sec;
   doc["rtk_enabled"] = config.rtk_enabled;
   doc["auto_cleanup_uploads"] = config.auto_cleanup_uploads;
+  doc["ota_auto_update"] = config.ota_auto_update;
+  doc["ota_base_url"] = config.ota_base_url;
   doc["display_mode"] = config.display_mode;
   JsonArray wifiArr = doc["wifi"].to<JsonArray>();
   for (int i = 0; i < config.wifi_count; i++) {
@@ -425,6 +444,19 @@ static void applyDeviceConfigWrite(JsonDocument& doc) {
     config.auto_cleanup_uploads = doc["auto_cleanup_uploads"];
     // No refresh needed — read fresh by both upload paths on their next
     // successful upload (upload.cpp's cleanupIfAutoDelete()).
+  }
+
+  if (doc["ota_auto_update"].is<bool>()) {
+    config.ota_auto_update = doc["ota_auto_update"];
+    // No refresh needed — read fresh by checkForFirmwareUpdate() (upload.cpp)
+    // on its next pass.
+  }
+
+  if (doc["ota_base_url"].is<const char*>()) {
+    const char* v = doc["ota_base_url"];
+    strncpy(config.ota_base_url, v, sizeof(config.ota_base_url) - 1);
+    config.ota_base_url[sizeof(config.ota_base_url) - 1] = '\0';
+    // No refresh needed — read fresh on the next OTA check.
   }
 
   if (doc["display_mode"].is<int>()) {
@@ -549,6 +581,13 @@ static String buildStatusJson() {
   // Only meaningful while logging — logStart isn't reset on stop, so a
   // stale elapsed reading from the last session would be misleading here.
   if (logging) rec["elapsed_s"] = (uint32_t)((millis() - logStart) / 1000);
+
+  // OTA state (docs/ota.md) — lets the app show manual-update progress/result.
+  JsonObject ota = doc["ota"].to<JsonObject>();
+  ota["state"] = (const char*)g_otaState;
+  if (g_otaProgress >= 0) ota["progress"] = g_otaProgress;
+  const char* otaMsg = otaMessage();
+  if (otaMsg && otaMsg[0]) ota["message"] = otaMsg;
 
   String out;
   serializeJson(doc, out);
