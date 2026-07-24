@@ -16,6 +16,7 @@
 #include "battery.h"
 #include "pressure.h"
 #include "wind_sensor.h"  // bleInitialized — shared with the wind-sensor central role
+#include "display.h"      // displayMode, d2LayoutDrawn/d3LayoutDrawn — device_config's display_mode field
 #include "shared_state.h"  // sdMutex
 #include <NimBLEDevice.h>
 #include <ArduinoJson.h>
@@ -347,6 +348,7 @@ static String buildDeviceConfigJson() {
   doc["stop_delay_sec"] = config.stop_delay_sec;
   doc["rtk_enabled"] = config.rtk_enabled;
   doc["auto_cleanup_uploads"] = config.auto_cleanup_uploads;
+  doc["display_mode"] = config.display_mode;
   JsonArray wifiArr = doc["wifi"].to<JsonArray>();
   for (int i = 0; i < config.wifi_count; i++) {
     JsonObject w = wifiArr.add<JsonObject>();
@@ -423,6 +425,17 @@ static void applyDeviceConfigWrite(JsonDocument& doc) {
     config.auto_cleanup_uploads = doc["auto_cleanup_uploads"];
     // No refresh needed — read fresh by both upload paths on their next
     // successful upload (upload.cpp's cleanupIfAutoDelete()).
+  }
+
+  if (doc["display_mode"].is<int>()) {
+    int m = doc["display_mode"];
+    if (m >= 1 && m <= 3) {
+      config.display_mode = m;
+      displayMode = m;
+      // Same forced-redraw path the console's `display` command uses.
+      d2LayoutDrawn = false;
+      d3LayoutDrawn = false;
+    }
   }
 
   if (doc["wifi"].is<JsonArray>()) {

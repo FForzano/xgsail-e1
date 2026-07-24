@@ -72,6 +72,18 @@ README instead of in GitHub's fork metadata.
 
 License: Apache 2.0, same as upstream and same as xgsail — no relicensing.
 
+## Display
+
+3.5" TFT dashboard, three nav layouts cycled live (console or BLE), plus
+two race-committee-only panels for fleet OCS detection:
+
+<img src="docs/images/display-modes/d2.png" width="220" alt="D2 nav display">
+<img src="docs/images/display-modes/rc-fleet-ocs.png" width="220" alt="RC in-race OCS panel">
+<br>D2 — nav + wind (default) &nbsp;·&nbsp; RC panel — live OCS per boat
+
+See `docs/hardware.md`'s Display section for all three nav modes and
+both RC panels.
+
 ## Quick start
 
 ### Firmware

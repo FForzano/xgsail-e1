@@ -230,6 +230,7 @@ void setup() {
         cardType == CARD_SD ? "SD" :
         cardType == CARD_SDHC ? "SDHC" : "UNKNOWN");
       loadConfig();
+      displayMode = config.display_mode;  // persisted BLE device_config setting (docs/ble-config.md)
       loadClassRegistry();  // Stage 5.5 — RC-only, no-op for racing boats
       loadIMUCalibration();
 

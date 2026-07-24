@@ -100,10 +100,47 @@ caused visible display flicker during SD writes on an earlier board
 revision.
 
 Three nav display modes exist (`display.cpp`'s `updateDisplayD1/D2/D3`,
-cycled with the `display` console command), plus two RC-only panels
-(`drawRcFleetPanel`/`drawRcPreRacePanel`) that take over the screen
-in place of the nav display while the unit's role is `rc_signal` — see
-`docs/firmware-architecture.md` for what those panels show and why.
+cycled with the `display` console command, or set persistently via
+`device_config`'s `display_mode` field over BLE — see `docs/ble-config.md`),
+plus two RC-only panels (`drawRcFleetPanel`/`drawRcPreRacePanel`) that take
+over the screen in place of the nav display while the unit's role is
+`rc_signal` — see `docs/firmware-architecture.md` for what those panels
+show and why.
+
+The renders below are pixel-accurate reconstructions of `display.cpp`'s
+layout (coordinates, dividers, colors) with sample data standing in for
+live sensor readings — not photos of a running board.
+
+**D1 — simple**
+<br><img src="images/display-modes/d1.png" width="200" alt="D1 display mode">
+<br>SOG/COG at full size, heel + battery below. Built for sunlight
+readability, nothing else on screen.
+
+**D2 — nav + wind (default)**
+<br><img src="images/display-modes/d2.png" width="200" alt="D2 display mode">
+<br>COG over SOG, status bar with fix/sat/HDOP, bottom bar with
+heel/pitch/wind/battery/upload — plus signed distance-to-line
+(`L+5.2m`) once a race is armed.
+
+**D3 — wind focus**
+<br><img src="images/display-modes/d3.png" width="200" alt="D3 display mode">
+<br>4×2 grid: apparent + true wind (speed/angle), SOG/COG, true wind
+direction full-width at the bottom.
+
+**RC pre-race panel**
+<br><img src="images/display-modes/rc-prerace.png" width="200" alt="RC pre-race panel">
+<br>`rc_signal`-only: one row per connected peer — fix quality, accuracy,
+HDOP, sat count — with a fleet-readiness "N/M FIX" gauge up top.
+
+**RC in-race panel**
+<br><img src="images/display-modes/rc-fleet-ocs.png" width="200" alt="RC in-race OCS panel">
+<br>Live signed distance-to-line and OCS state per boat (OK / OVR / OCS),
+start countdown top-right.
+
+**Boat-side OCS alarm**
+<br><img src="images/display-modes/ocs-alarm.png" width="200" alt="Boat-side OCS alarm">
+<br>Takes over the nav display when the RC recalls this boat — the RC's
+call is authoritative regardless of the boat's own local computation.
 
 ## Superseded designs (for context only — not what's on the board today)
 

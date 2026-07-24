@@ -136,6 +136,7 @@ implying it changes which XGSail boat the device's data belongs to.
   "stop_delay_sec": 180,
   "rtk_enabled": false,
   "auto_cleanup_uploads": true,
+  "display_mode": 2,
   "wifi": [
     { "ssid": "YourHomeNetwork", "pass": "" },
     { "ssid": "YachtClubNetwork", "pass": "" }
@@ -195,6 +196,7 @@ one applies:
 | `stop_speed_knots` / `start_delay_sec` / `stop_delay_sec` | float / int / int | Round-tripped for older cards' `config.txt` compatibility — **unused by the firmware**. Don't build UI around them. |
 | `rtk_enabled` | bool | Immediately — reconfigures the GNSS module (base/rover RTK) right away, the same live path the console's `gpscfg` command already uses. |
 | `auto_cleanup_uploads` | bool | Immediately — the next successful upload (WiFi or BLE relay) reads it fresh before deciding whether to delete the file. Default `true`. |
+| `display_mode` | int, `1`\|`2`\|`3` | Immediately — same effect as cycling the console's `display` command: `1` = D1 (simple, large numbers), `2` = D2 (Vakaros-style nav + wind, default), `3` = D3 (wind focus). Out-of-range values are ignored (rest of the write still applies). Persisted, so it survives a reboot. |
 
 **Not configurable here, and why:**
 - `claim_code` — irrelevant to this characteristic. BLE claiming already

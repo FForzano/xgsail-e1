@@ -168,6 +168,13 @@ struct Config {
   // docs/ble-config.md). Defaults on: most operators want the SD card to
   // stay ahead of itself rather than fill up over a season.
   bool auto_cleanup_uploads = true;
+
+  // TFT nav display mode: 1 = D1 (simple big numbers), 2 = D2 (nav + wind,
+  // default), 3 = D3 (wind focus) — see display.h. Persisted here so a BLE
+  // device_config write (docs/ble-config.md) survives a reboot; display.cpp's
+  // own `displayMode` global is what the render loop actually reads, synced
+  // from this field once at boot (sailframes_edge.ino, after loadConfig()).
+  int display_mode = 2;
 };
 
 extern Config config;

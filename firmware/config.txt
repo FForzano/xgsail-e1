@@ -53,3 +53,7 @@ unit_role=racing_boat
 # RTK relative mode (docs/gnss-rtk.md). Off by default; enabling reconfigures
 # the GNSS module and is a physical bring-up act, not a remote-safe toggle.
 rtk_enabled=false
+
+# TFT nav display mode: 1 = simple big numbers, 2 = nav + wind (default),
+# 3 = wind focus. Also settable live over BLE (device_config, docs/ble-config.md).
+display_mode=2
