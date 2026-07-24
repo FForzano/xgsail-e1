@@ -65,24 +65,9 @@ bool connectWiFi();
 bool uploadHealthSnapshot();
 void countPendingUploads();
 
-// Automatic OTA firmware update check (docs/ota.md). Called from the upload
-// task's WiFi window, right after the health snapshot. No-op unless
-// config.ota_auto_update is set, and never runs while recording. On a newer
-// build it downloads + verifies + reboots (see upload.cpp).
-void checkForFirmwareUpdate();
-
-// Manual OTA trigger, set by ble_relay.cpp's control `ota-update` command
-// (any bonded phone, works even with ota_auto_update off). The upload task
-// services it: brings WiFi up and runs a check/apply. Refused while recording.
-extern volatile bool otaManualRequested;
-
-// Coarse OTA state for the BLE `status` characteristic: "idle" | "checking" |
-// "up_to_date" | "downloading" | "applying" | "suspended" | "error".
-// g_otaProgress is a 0-100 percentage while downloading, else -1. otaMessage()
-// is a short human-readable detail (e.g. the error reason), or "".
-extern volatile const char* g_otaState;
-extern volatile int         g_otaProgress;
-const char* otaMessage();
+// OTA firmware updates (checkForFirmwareUpdate(), the manual-trigger flag,
+// and the BLE-facing status) live in ota.h/ota.cpp — this module's upload
+// task just calls into them from its WiFi window (see uploadTaskFunc()).
 
 // Core-0 tasks (created from setup()).
 void diagnosticsTask(void* param);

@@ -61,12 +61,13 @@ tuple against the running build — only a strictly newer build triggers a
 download. A malformed/missing version on either side is treated as "not
 newer" (fail closed — never flash on ambiguous data).
 
-## Flow (`upload.cpp`)
+## Flow (`ota.cpp`)
 
 1. **Trigger.** Either automatic — `checkForFirmwareUpdate()`, called once per
    boot (and on each subsequent health-check WiFi wake) from the Core-0 upload
-   task, gated on `config.ota_auto_update` — or manual, via the BLE `control`
-   `ota-update` command (see below), which runs regardless of that flag.
+   task (`upload.cpp`'s `uploadTaskFunc()`), gated on `config.ota_auto_update`
+   — or manual, via the BLE `control` `ota-update` command (see below), which
+   runs regardless of that flag.
 2. **Manifest.** `otaFetchManifest()` GETs `manifest.json` and parses
    `version`/`url`/`checksum`.
 3. **Version compare.** `otaVersionIsNewer()` parses both versions with the

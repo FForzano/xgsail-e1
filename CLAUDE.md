@@ -111,6 +111,7 @@ xgsail-e1/
 │       ├── device_auth.h/.cpp    # Device identity, claim flow, DeviceKey HTTP helper
 │       ├── ble_relay.h/.cpp      # BLE GATT peripheral: WiFi-less claim/upload relay
 │       ├── upload.h/.cpp         # WiFi connect + device-protocol upload (Core-0 task) + diagnostics
+│       ├── ota.h/.cpp            # OTA firmware update: manifest fetch, download/verify/apply, manual-trigger state
 │       └── shared_state.h/.cpp   # Cross-cutting: hang-watchdog breadcrumbs, WiFi-busy gate, SD mutex
 ├── clients/              # Reusable client libraries for talking to the E1,
 │                         # one subdirectory per platform/language (more

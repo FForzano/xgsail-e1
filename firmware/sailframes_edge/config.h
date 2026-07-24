@@ -170,11 +170,11 @@ struct Config {
   bool auto_cleanup_uploads = true;
 
   // Whether the device may automatically pull and apply a firmware update
-  // when one is available (checkForFirmwareUpdate(), upload.cpp). Defaults
+  // when one is available (checkForFirmwareUpdate(), ota.cpp). Defaults
   // OFF: a device never auto-updates until the owner explicitly turns it on.
   // Independent of the manual BLE trigger (control's `ota-update`), which
   // works even with this off. Either way, no update is attempted while
-  // recording (upload.cpp's `logging` gate) and an in-progress download is
+  // recording (storage.h's `logging` gate) and an in-progress download is
   // suspended if recording starts, so an OTA flash never contends with an
   // active session. Configurable/readable live over BLE (device_config,
   // docs/ble-config.md). See docs/ota.md.

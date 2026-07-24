@@ -8,6 +8,7 @@
 #include "config.h"
 #include "device_auth.h"
 #include "upload.h"
+#include "ota.h"
 #include "storage.h"
 #include "recording.h"
 #include "mesh.h"
@@ -448,7 +449,7 @@ static void applyDeviceConfigWrite(JsonDocument& doc) {
 
   if (doc["ota_auto_update"].is<bool>()) {
     config.ota_auto_update = doc["ota_auto_update"];
-    // No refresh needed — read fresh by checkForFirmwareUpdate() (upload.cpp)
+    // No refresh needed — read fresh by checkForFirmwareUpdate() (ota.cpp)
     // on its next pass.
   }
 
